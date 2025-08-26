@@ -1,6 +1,6 @@
 {
   "name": "react-session.manager.sk",
-  "version": "2.0.7",
+  "version": "2.0.6",
   "description": "A react component used to manage token sessions with flask backend",
   "main": "./dist/index.js",
   "files": [
@@ -9,7 +9,15 @@
   ],
   "scripts": {
     "build": "webpack --mode production",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor",
+    "version:major": "npm version major",
+    "release:patch": "npm run version:patch && git push --follow-tags",
+    "release:minor": "npm run version:minor && git push --follow-tags",
+    "release:major": "npm run version:major && git push --follow-tags",
+    "preversion": "npm run build && npm test --if-present",
+    "postversion": "echo \"Version updated to $(node -p \\\"require('./package.json').version\\\")\""
   },
   "author": "Skulldorom",
   "license": "ISC",

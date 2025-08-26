@@ -52,3 +52,57 @@ Run the following in package root directory
 ```
 npm link react react-dom
 ```
+
+## Development & Release
+
+### Making Releases
+
+This project uses automated releases via GitHub Actions. To create a new release:
+
+**Option 1: Using PowerShell script (Windows)**
+
+```powershell
+# Patch release (2.0.7 -> 2.0.8)
+.\release.ps1 patch
+
+# Minor release (2.0.7 -> 2.1.0)
+.\release.ps1 minor
+
+# Major release (2.0.7 -> 3.0.0)
+.\release.ps1 major
+```
+
+**Option 2: Using npm scripts directly**
+
+```bash
+# Patch release
+npm run release:patch
+
+# Minor release
+npm run release:minor
+
+# Major release
+npm run release:major
+```
+
+**Option 3: Manual version management**
+
+```bash
+# Update version and create git tag
+npm version patch  # or minor/major
+git push --follow-tags
+```
+
+### Release Process
+
+1. The script/command updates `package.json` version
+2. Creates a git tag (e.g., `v2.0.8`)
+3. Pushes the tag to GitHub
+4. GitHub Actions automatically:
+   - Builds the project
+   - Creates a GitHub release
+   - Publishes to npm
+
+### Changelog
+
+All changes are documented in [CHANGELOG.md](./CHANGELOG.md). Please update it before making releases.

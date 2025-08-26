@@ -4,8 +4,9 @@
 name: Node.js Package
 
 on:
-  release:
-    types: [created]
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build-and-publish:
@@ -20,6 +21,24 @@ jobs:
       - run: npm run build
       - name: Verify build output
         run: test -f dist/index.js || (echo "Build failed - dist/index.js not found" && exit 1)
+
+      # Create GitHub Release
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: |
+            Changes in this Release
+            - Automatically generated from tag ${{ github.ref_name }}
+            - Check [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for detailed changes
+          draft: false
+          prerelease: false
+
+      # Publish to NPM
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}
