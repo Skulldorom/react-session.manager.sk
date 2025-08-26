@@ -382,34 +382,6 @@ const SessionManagerProvider = ({
   return (
     <ErrorBoundary>
       <SessionManager.Provider value={contextValue}>
-        {loadingUser && (
-          <div
-            style={{
-              position: "fixed",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-              zIndex: 9999,
-            }}
-          >
-            <div
-              style={{
-                width: "40px",
-                height: "40px",
-                border: "4px solid rgba(0,0,0,1)",
-                borderTop: "4px solid rgba(0,0,0,0.1)",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-              }}
-            />
-            <style>{`
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-            `}</style>
-          </div>
-        )}
         <ToastContainer
           position="top-left"
           autoClose={5000}
@@ -444,7 +416,7 @@ function VersionProtection({ appVersion }) {
         console.log("Update Success Toast");
         toast.success("Your application has been updated", {
           toastId: "appReload",
-          icon: "✅",
+          icon: "🔄",
           onClose: () => {
             try {
               sessionStorage.removeItem("appVersionOld");
