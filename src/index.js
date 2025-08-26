@@ -379,10 +379,10 @@ const SessionManagerProvider = ({
   };
 
   // Show loading state while initializing
-  if (loadingUser) {
-    return (
-      <ErrorBoundary>
-        <SessionManager.Provider value={contextValue}>
+  return (
+    <ErrorBoundary>
+      <SessionManager.Provider value={contextValue}>
+        {loadingUser && (
           <div
             style={{
               position: "fixed",
@@ -397,7 +397,7 @@ const SessionManagerProvider = ({
                 width: "40px",
                 height: "40px",
                 border: "4px solid rgba(0,0,0,0.1)",
-                borderTop: "4px solid #1976d2",
+                borderTop: "4px solid #c51010ff",
                 borderRadius: "50%",
                 animation: "spin 1s linear infinite",
               }}
@@ -409,14 +409,7 @@ const SessionManagerProvider = ({
               }
             `}</style>
           </div>
-        </SessionManager.Provider>
-      </ErrorBoundary>
-    );
-  }
-
-  return (
-    <ErrorBoundary>
-      <SessionManager.Provider value={contextValue}>
+        )}
         <ToastContainer
           position="top-left"
           autoClose={5000}
