@@ -1,6 +1,5 @@
 import React from "react";
 import { toast } from "react-toastify";
-import { Error as ErrorIcon } from "@mui/icons-material";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -35,7 +34,7 @@ class ErrorBoundary extends React.Component {
     // Show a toast notification for the error
     toast.error(errorMessage, {
       toastId: "error-boundary",
-      icon: <ErrorIcon />,
+      icon: "❌",
       autoClose: 10000,
     });
 
