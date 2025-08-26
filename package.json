@@ -3,6 +3,10 @@
   "version": "2.0.7",
   "description": "A react component used to manage token sessions with flask backend",
   "main": "./dist/index.js",
+  "files": [
+    "dist/",
+    "README.md"
+  ],
   "scripts": {
     "build": "webpack --mode production",
     "test": "echo \"Error: no test specified\" && exit 1"
