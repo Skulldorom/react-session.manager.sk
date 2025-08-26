@@ -385,48 +385,29 @@ const SessionManagerProvider = ({
         <SessionManager.Provider value={contextValue}>
           <div
             style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: "100vh",
-              padding: "20px",
-              backgroundColor: "#f5f5f5",
-              fontFamily: "Arial, sans-serif",
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              zIndex: 9999,
             }}
           >
             <div
               style={{
-                backgroundColor: "white",
-                padding: "40px",
-                borderRadius: "8px",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-                textAlign: "center",
-                maxWidth: "400px",
+                width: "40px",
+                height: "40px",
+                border: "4px solid rgba(0,0,0,0.1)",
+                borderTop: "4px solid #1976d2",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
               }}
-            >
-              <div
-                style={{
-                  width: "40px",
-                  height: "40px",
-                  border: "4px solid #f3f3f3",
-                  borderTop: "4px solid #1976d2",
-                  borderRadius: "50%",
-                  animation: "spin 1s linear infinite",
-                  margin: "0 auto 16px",
-                }}
-              />
-              <h3 style={{ color: "#333", marginBottom: "8px" }}>Loading...</h3>
-              <p style={{ color: "#666", margin: 0 }}>
-                Initializing session manager
-              </p>
-            </div>
+            />
             <style>{`
-                @keyframes spin {
-                  0% { transform: rotate(0deg); }
-                  100% { transform: rotate(360deg); }
-                }
-              `}</style>
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
           </div>
         </SessionManager.Provider>
       </ErrorBoundary>
