@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from "react";
 import versionCompare from "./components/versionCompare";
 import getDeviceFingerprint from "./components/FingerPrint";
+import ErrorBoundary from "./components/ErrorBoundary";
 // Notifications
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -40,9 +41,26 @@ const SessionManagerProvider = ({
 
   useEffect(() => {
     if (!deviceUID) {
-      const uid = getDeviceFingerprint();
-      setDeviceUID(uid);
-      AuthenticatedAxiosObject.defaults.headers.common["deviceUID"] = uid;
+      try {
+        const uid = getDeviceFingerprint();
+        if (uid) {
+          setDeviceUID(uid);
+          localStorage.setItem("deviceUID", uid);
+          AuthenticatedAxiosObject.defaults.headers.common["deviceUID"] = uid;
+        }
+      } catch (err) {
+        console.error("Failed to generate device fingerprint:", err);
+        // Generate a fallback UUID
+        const fallbackUID =
+          "fallback-" +
+          Date.now() +
+          "-" +
+          Math.random().toString(36).substr(2, 9);
+        setDeviceUID(fallbackUID);
+        localStorage.setItem("deviceUID", fallbackUID);
+        AuthenticatedAxiosObject.defaults.headers.common["deviceUID"] =
+          fallbackUID;
+      }
     }
   }, [deviceUID, AuthenticatedAxiosObject]);
 
@@ -60,7 +78,7 @@ const SessionManagerProvider = ({
       setTimeout(() => {
         refreshToken()
           .then((data) => {
-            if (data.refreshed) {
+            if (data?.refreshed) {
               const token = `Bearer ${data.access_token}`;
               setCurrent(token);
               AuthenticatedAxiosObject.defaults.headers.common[
@@ -71,10 +89,23 @@ const SessionManagerProvider = ({
             }
           })
           .catch((err) => {
-            console.log(err);
-            console.log("Missing/Invalid Token");
+            console.error("Token refresh failed:", err);
+            // Clear invalid tokens
             localStorage.removeItem("Authorization");
             sessionStorage.removeItem("Authorization");
+            setCurrent("");
+            setCurrentLoggedIn(false);
+
+            // Only show toast for actual network/server errors, not auth failures
+            if (err?.code === "ERR_NETWORK" || err?.response?.status >= 500) {
+              toast.error(
+                "Unable to refresh your session. Please login again.",
+                {
+                  toastId: "token-refresh-error",
+                  icon: <Logout />,
+                }
+              );
+            }
           });
       }, 100);
     },
@@ -87,8 +118,8 @@ const SessionManagerProvider = ({
 
     if (local_auth) fromPrevious(local_auth, true);
     else if (sess_auth) fromPrevious(sess_auth, false);
-    return () => clearInterval(fromPrevious);
-  }, [current, fromPrevious]);
+    // No cleanup needed here since fromPrevious doesn't create intervals
+  }, [fromPrevious]);
 
   // Wrap setHeader to store new header names in localStorage
   const setHeader = (header) => {
@@ -104,13 +135,31 @@ const SessionManagerProvider = ({
     setTimeout(() => {
       userLoader()
         .then((res) => {
-          const data = res.data;
-          setCurrentLoggedIn(data.logged_in);
-          setIsAdmin(data.is_admin);
-          setUserInfo(data.Info);
+          const data = res?.data;
+          if (data) {
+            setCurrentLoggedIn(data.logged_in);
+            setIsAdmin(data.is_admin);
+            setUserInfo(data.Info || {});
+          }
         })
         .catch((err) => {
-          console.log(err);
+          console.error("User data loading failed:", err);
+          // Don't show toast for auth errors (401, 403)
+          if (err?.response?.status !== 401 && err?.response?.status !== 403) {
+            if (err?.code === "ERR_NETWORK" || err?.response?.status >= 500) {
+              toast.error(
+                "Unable to load user information. Some features may be limited.",
+                {
+                  toastId: "user-load-error",
+                  icon: <GppBad />,
+                }
+              );
+            }
+          }
+          // Set safe defaults
+          setCurrentLoggedIn(false);
+          setIsAdmin(false);
+          setUserInfo({});
         })
         .finally(() => {
           setLoadingUser(false);
@@ -138,7 +187,7 @@ const SessionManagerProvider = ({
       clearInterval(interval);
     }
     return () => clearInterval(interval);
-  }, [current, fromPrevious, currentLoggin, refreshTimer]);
+  }, [fromPrevious, currentLoggin, refreshTimer]);
 
   useEffect(() => {
     const customInterceptor = () => {
@@ -147,9 +196,12 @@ const SessionManagerProvider = ({
           return response;
         },
         (error) => {
+          console.error("Axios interceptor caught error:", error);
+
+          // Handle session expiry (455)
           if (error?.response?.status === 455) {
             try {
-              const status = error.response.data.logged_in || false;
+              const status = error.response.data?.logged_in || false;
               if (!status) {
                 console.log("Session ended");
                 setCurrentLoggedIn(false);
@@ -157,50 +209,83 @@ const SessionManagerProvider = ({
                   "Authorization"
                 ] = ``;
                 toast.info(
-                  "Your session in no longer valid, please login again.",
+                  "Your session is no longer valid, please login again.",
                   { toastId: "Forced_log_out", icon: <Logout /> }
                 );
               }
             } catch (err) {
-              throw err;
+              console.error("Error handling session expiry:", err);
+              // Don't throw here - just log and continue
             }
-          }
-          if (error?.response?.status === 426) {
-            sessionStorage.setItem("appVersionOld", true);
-            sessionStorage.setItem(
-              "requiredVersion",
-              error.response.data.minVersion
-            );
-            let reloads = sessionStorage.getItem("appReloads") || 0;
-            if (reloads < 2) {
-              sessionStorage.setItem("appReloads", reloads + 1);
-              setTimeout(() => {
-                window.location.reload();
-              }, 1000 * reloads);
-            } else {
-              toast.warning(
-                "The application needs to be updated please wait for some time then reload the page.",
-                {
-                  toastId: "appReloadError",
-                  icon: <Update />,
-                }
-              );
-            }
+            return Promise.reject(error);
           }
 
-          if (!error?.response?.status) {
-            if (error?.code !== "ERR_CANCELED" && error?.message !== "canceled")
-              toast.error(
-                "The server is not responding, please reload or try again later.",
-                { toastId: "ERR_CONNECTION_REFUSED", icon: <GppBad /> }
+          // Handle version mismatch (426)
+          if (error?.response?.status === 426) {
+            try {
+              sessionStorage.setItem("appVersionOld", true);
+              sessionStorage.setItem(
+                "requiredVersion",
+                error.response.data?.minVersion || "unknown"
               );
+              let reloads = parseInt(
+                sessionStorage.getItem("appReloads") || "0"
+              );
+              if (reloads < 2) {
+                sessionStorage.setItem("appReloads", (reloads + 1).toString());
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000 * reloads);
+              } else {
+                toast.warning(
+                  "The application needs to be updated. Please wait for some time then reload the page.",
+                  {
+                    toastId: "appReloadError",
+                    icon: <Update />,
+                  }
+                );
+              }
+            } catch (err) {
+              console.error("Error handling version mismatch:", err);
+            }
+            return Promise.reject(error);
           }
-          throw error;
+
+          // Handle network errors and connection issues
+          if (!error?.response?.status) {
+            if (
+              error?.code !== "ERR_CANCELED" &&
+              error?.message !== "canceled"
+            ) {
+              const errorMessage =
+                error?.code === "ERR_NETWORK"
+                  ? "Unable to connect to the server. Please check your internet connection and try again."
+                  : "The server is not responding, please reload or try again later.";
+
+              toast.error(errorMessage, {
+                toastId: `${error?.code || "ERR_CONNECTION_REFUSED"}`,
+                icon: <GppBad />,
+              });
+            }
+            return Promise.reject(error);
+          }
+
+          // For all other errors, just reject without throwing
+          return Promise.reject(error);
         }
       );
     };
-    return customInterceptor;
-  }, [AuthenticatedAxiosObject, currentLoggin]);
+
+    // Call the interceptor setup
+    customInterceptor();
+
+    // Cleanup function to remove interceptors
+    return () => {
+      if (AuthenticatedAxiosObject?.interceptors?.response) {
+        AuthenticatedAxiosObject.interceptors.response.clear();
+      }
+    };
+  }, [AuthenticatedAxiosObject, currentLoggin, setCurrentLoggedIn]);
 
   // We will use the below to refresh our data about the user when ever we flag refreshData as true
   const [refreshData, setRefreshFlag] = useState(false);
@@ -217,11 +302,20 @@ const SessionManagerProvider = ({
 
   useEffect(() => {
     if (refreshData) {
-      userLoader().then((res) => {
-        const data = res.data;
-        setUserInfo(data.Info);
-        setRefreshData(false);
-      });
+      userLoader()
+        .then((res) => {
+          const data = res?.data;
+          if (data) {
+            setUserInfo(data.Info || {});
+          }
+        })
+        .catch((err) => {
+          console.error("User data refresh failed:", err);
+          // Silently fail for data refresh - don't overwhelm user with toasts
+        })
+        .finally(() => {
+          setRefreshData(false);
+        });
     }
   }, [refreshData, userLoader]);
 
@@ -230,10 +324,21 @@ const SessionManagerProvider = ({
   };
 
   // Check if user has specific role
-
   const hasRole = (roles) => {
-    const found = roles.some((r) => userInfo?.roles?.indexOf(r) >= 0);
-    return found;
+    if (
+      !roles ||
+      !Array.isArray(roles) ||
+      !userInfo?.roles ||
+      !Array.isArray(userInfo.roles)
+    ) {
+      return false;
+    }
+    try {
+      return roles.some((r) => userInfo.roles.indexOf(r) >= 0);
+    } catch (err) {
+      console.error("Error checking user roles:", err);
+      return false;
+    }
   };
 
   const contextValue = {
@@ -251,43 +356,58 @@ const SessionManagerProvider = ({
   };
 
   return (
-    <SessionManager.Provider value={contextValue}>
-      <ToastContainer
-        position="top-left"
-        autoClose={5000}
-        closeOnClick
-        pauseOnFocusLoss
-        pauseOnHover
-        newestOnTop={false}
-        toastClassName={"custToast materialToast"}
-        {...toastOptions}
-      />
-      <VersionProtection appVersion={appVersion} />
-      {children}
-    </SessionManager.Provider>
+    <ErrorBoundary>
+      <SessionManager.Provider value={contextValue}>
+        <ToastContainer
+          position="top-left"
+          autoClose={5000}
+          closeOnClick
+          pauseOnFocusLoss
+          pauseOnHover
+          newestOnTop={false}
+          toastClassName={"custToast materialToast"}
+          {...toastOptions}
+        />
+        <VersionProtection appVersion={appVersion} />
+        {children}
+      </SessionManager.Provider>
+    </ErrorBoundary>
   );
 };
 
 function VersionProtection({ appVersion }) {
-  const oldVersion = sessionStorage.getItem("appVersionOld") || false;
+  const [oldVersion, setOldVersion] = useState(false);
+
   useEffect(() => {
-    if (
-      oldVersion &&
-      sessionStorage.getItem("requiredVersion") &&
-      versionCompare(appVersion, sessionStorage.getItem("requiredVersion"))
-    ) {
-      console.log("Update Success Toast");
-      toast.success("Your application has been updated", {
-        toastId: "appReload",
-        icon: <BrowserUpdated />,
-        onClose: () => {
-          sessionStorage.removeItem("appVersionOld");
-          sessionStorage.removeItem("requiredVersion");
-          sessionStorage.removeItem("appReloads");
-        },
-      });
+    try {
+      const isOldVersion = sessionStorage.getItem("appVersionOld") === "true";
+      setOldVersion(isOldVersion);
+
+      if (
+        isOldVersion &&
+        sessionStorage.getItem("requiredVersion") &&
+        appVersion &&
+        versionCompare(appVersion, sessionStorage.getItem("requiredVersion"))
+      ) {
+        console.log("Update Success Toast");
+        toast.success("Your application has been updated", {
+          toastId: "appReload",
+          icon: <BrowserUpdated />,
+          onClose: () => {
+            try {
+              sessionStorage.removeItem("appVersionOld");
+              sessionStorage.removeItem("requiredVersion");
+              sessionStorage.removeItem("appReloads");
+            } catch (err) {
+              console.error("Error cleaning up version storage:", err);
+            }
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Error in version protection:", err);
     }
-  }, [oldVersion]);
+  }, [appVersion]);
 
   return <></>;
 }
