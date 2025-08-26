@@ -21,15 +21,23 @@ class ErrorBoundary extends React.Component {
       errorInfo: errorInfo,
     });
 
+    // Check if this is a theme-related error
+    const isThemeError =
+      error?.message?.includes("Cannot convert undefined or null to object") &&
+      (error?.stack?.includes("Object.entries") ||
+        error?.stack?.includes("theme") ||
+        error?.stack?.includes("Styled"));
+
+    const errorMessage = isThemeError
+      ? "A theme error occurred. This might be due to connection issues. Please refresh the page."
+      : "Something went wrong. Please refresh the page or try again later.";
+
     // Show a toast notification for the error
-    toast.error(
-      "Something went wrong. Please refresh the page or try again later.",
-      {
-        toastId: "error-boundary",
-        icon: <ErrorIcon />,
-        autoClose: 10000,
-      }
-    );
+    toast.error(errorMessage, {
+      toastId: "error-boundary",
+      icon: <ErrorIcon />,
+      autoClose: 10000,
+    });
 
     // Log error to external service if needed
     if (this.props.onError) {
@@ -57,11 +65,14 @@ class ErrorBoundary extends React.Component {
             border: "1px solid #dee2e6",
             borderRadius: "8px",
             margin: "20px",
+            minHeight: "200px",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
           }}
         >
-          <ErrorIcon
-            style={{ fontSize: "48px", color: "#dc3545", marginBottom: "16px" }}
-          />
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>⚠️</div>
           <h2 style={{ color: "#343a40", marginBottom: "16px" }}>
             Something went wrong
           </h2>
@@ -97,7 +108,9 @@ class ErrorBoundary extends React.Component {
           </button>
 
           {process.env.NODE_ENV === "development" && this.state.error && (
-            <details style={{ marginTop: "20px", textAlign: "left" }}>
+            <details
+              style={{ marginTop: "20px", textAlign: "left", width: "100%" }}
+            >
               <summary style={{ cursor: "pointer", fontWeight: "bold" }}>
                 Error Details (Development)
               </summary>
@@ -109,6 +122,8 @@ class ErrorBoundary extends React.Component {
                   overflow: "auto",
                   fontSize: "12px",
                   marginTop: "10px",
+                  maxHeight: "300px",
+                  textAlign: "left",
                 }}
               >
                 {this.state.error && this.state.error.toString()}

@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback } from "react";
 import versionCompare from "./components/versionCompare";
 import getDeviceFingerprint from "./components/FingerPrint";
 import ErrorBoundary from "./components/ErrorBoundary";
+import ThemeWrapper from "./components/ThemeWrapper";
 // Notifications
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -90,6 +91,12 @@ const SessionManagerProvider = ({
           })
           .catch((err) => {
             console.error("Token refresh failed:", err);
+            
+            // Track auth failures
+            if (err?.code === "ERR_NETWORK" || err?.code === "ERR_CONNECTION_REFUSED") {
+              setAuthError(true);
+            }
+            
             // Clear invalid tokens
             localStorage.removeItem("Authorization");
             sessionStorage.removeItem("Authorization");
@@ -98,13 +105,19 @@ const SessionManagerProvider = ({
 
             // Only show toast for actual network/server errors, not auth failures
             if (err?.code === "ERR_NETWORK" || err?.response?.status >= 500) {
-              toast.error(
-                "Unable to refresh your session. Please login again.",
-                {
-                  toastId: "token-refresh-error",
-                  icon: <Logout />,
-                }
-              );
+              // Don't spam with toasts during retries
+              const lastToast = sessionStorage.getItem("lastRefreshErrorToast");
+              const now = Date.now();
+              if (!lastToast || now - parseInt(lastToast) > 30000) { // 30 seconds
+                toast.error(
+                  "Unable to refresh your session. Please login again.",
+                  {
+                    toastId: "token-refresh-error",
+                    icon: <Logout />,
+                  }
+                );
+                sessionStorage.setItem("lastRefreshErrorToast", now.toString());
+              }
             }
           });
       }, 100);
@@ -130,6 +143,7 @@ const SessionManagerProvider = ({
   const [isAdmin, setIsAdmin] = useState(false);
   const [userInfo, setUserInfo] = useState({});
   const [loadingUser, setLoadingUser] = useState(true);
+  const [authError, setAuthError] = useState(false);
 
   useEffect(() => {
     setTimeout(() => {
@@ -140,13 +154,18 @@ const SessionManagerProvider = ({
             setCurrentLoggedIn(data.logged_in);
             setIsAdmin(data.is_admin);
             setUserInfo(data.Info || {});
+            setAuthError(false);
           }
         })
         .catch((err) => {
           console.error("User data loading failed:", err);
-          // Don't show toast for auth errors (401, 403)
-          if (err?.response?.status !== 401 && err?.response?.status !== 403) {
-            if (err?.code === "ERR_NETWORK" || err?.response?.status >= 500) {
+          
+          // Check if this is a persistent auth error
+          if (err?.code === "ERR_NETWORK" || err?.code === "ERR_CONNECTION_REFUSED") {
+            setAuthError(true);
+            // Don't show toast immediately, let retries happen first
+          } else if (err?.response?.status !== 401 && err?.response?.status !== 403) {
+            if (err?.response?.status >= 500) {
               toast.error(
                 "Unable to load user information. Some features may be limited.",
                 {
@@ -193,6 +212,8 @@ const SessionManagerProvider = ({
     const customInterceptor = () => {
       AuthenticatedAxiosObject.interceptors.response.use(
         (response) => {
+          // Reset connection failure count on successful response
+          sessionStorage.setItem("connectionFailures", "0");
           return response;
         },
         (error) => {
@@ -262,10 +283,18 @@ const SessionManagerProvider = ({
                   ? "Unable to connect to the server. Please check your internet connection and try again."
                   : "The server is not responding, please reload or try again later.";
 
-              toast.error(errorMessage, {
-                toastId: `${error?.code || "ERR_CONNECTION_REFUSED"}`,
-                icon: <GppBad />,
-              });
+              // Only show toast after multiple failures to avoid spam
+              const failureCount = parseInt(sessionStorage.getItem("connectionFailures") || "0");
+              sessionStorage.setItem("connectionFailures", (failureCount + 1).toString());
+              
+              if (failureCount >= 3) {
+                toast.error(errorMessage, {
+                  toastId: `${error?.code || "ERR_CONNECTION_REFUSED"}`,
+                  icon: <GppBad />,
+                });
+                // Reset counter after showing toast
+                sessionStorage.setItem("connectionFailures", "0");
+              }
             }
             return Promise.reject(error);
           }
@@ -353,25 +382,198 @@ const SessionManagerProvider = ({
     hasRole: hasRole,
     deviceUID: deviceUID,
     loadingUser: loadingUser,
+    authError: authError,
   };
 
+  // Show loading state while initializing
+  if (loadingUser) {
+    return (
+      <ThemeWrapper>
+        <ErrorBoundary>
+          <SessionManager.Provider value={contextValue}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '100vh',
+              padding: '20px',
+              backgroundColor: '#f5f5f5',
+              fontFamily: 'Arial, sans-serif'
+            }}>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '40px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                textAlign: 'center',
+                maxWidth: '400px'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  border: '4px solid #f3f3f3',
+                  borderTop: '4px solid #1976d2',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 16px'
+                }} />
+                <h3 style={{ color: '#333', marginBottom: '8px' }}>Loading...</h3>
+                <p style={{ color: '#666', margin: 0 }}>
+                  Initializing session manager
+                </p>
+              </div>
+              <style>{`
+                @keyframes spin {
+                  0% { transform: rotate(0deg); }
+                  100% { transform: rotate(360deg); }
+                }
+              `}</style>
+            </div>
+          </SessionManager.Provider>
+        </ErrorBoundary>
+      </ThemeWrapper>
+    );
+  }
+    return (
+      <ThemeWrapper>
+        <ErrorBoundary>
+          <SessionManager.Provider value={contextValue}>
+            <ToastContainer
+              position="top-left"
+              autoClose={5000}
+              closeOnClick
+              pauseOnFocusLoss
+              pauseOnHover
+              newestOnTop={false}
+              toastClassName={"custToast materialToast"}
+              {...toastOptions}
+            />
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '100vh',
+              padding: '20px',
+              backgroundColor: '#f5f5f5',
+              fontFamily: 'Arial, sans-serif'
+            }}>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '40px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                textAlign: 'center',
+                maxWidth: '400px'
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+                <h2 style={{ color: '#d32f2f', marginBottom: '16px' }}>Connection Error</h2>
+                <p style={{ color: '#666', marginBottom: '24px' }}>
+                  Unable to connect to the server. Please check your internet connection and try again.
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{
+                    backgroundColor: '#1976d2',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '16px'
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          </SessionManager.Provider>
+        </ErrorBoundary>
+      </ThemeWrapper>
+    );
+  }
+
+  // If there's a persistent auth error, render a minimal error state
+  if (authError && !loadingUser) {
+    return (
+      <ThemeWrapper>
+        <ErrorBoundary>
+          <SessionManager.Provider value={contextValue}>
+            <ToastContainer
+              position="top-left"
+              autoClose={5000}
+              closeOnClick
+              pauseOnFocusLoss
+              pauseOnHover
+              newestOnTop={false}
+              toastClassName={"custToast materialToast"}
+              {...toastOptions}
+            />
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '100vh',
+              padding: '20px',
+              backgroundColor: '#f5f5f5',
+              fontFamily: 'Arial, sans-serif'
+            }}>
+              <div style={{
+                backgroundColor: 'white',
+                padding: '40px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                textAlign: 'center',
+                maxWidth: '400px'
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+                <h2 style={{ color: '#d32f2f', marginBottom: '16px' }}>Connection Error</h2>
+                <p style={{ color: '#666', marginBottom: '24px' }}>
+                  Unable to connect to the server. Please check your internet connection and try again.
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{
+                    backgroundColor: '#1976d2',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '16px'
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          </SessionManager.Provider>
+        </ErrorBoundary>
+      </ThemeWrapper>
+    );
+  }
+
   return (
-    <ErrorBoundary>
-      <SessionManager.Provider value={contextValue}>
-        <ToastContainer
-          position="top-left"
-          autoClose={5000}
-          closeOnClick
-          pauseOnFocusLoss
-          pauseOnHover
-          newestOnTop={false}
-          toastClassName={"custToast materialToast"}
-          {...toastOptions}
-        />
-        <VersionProtection appVersion={appVersion} />
-        {children}
-      </SessionManager.Provider>
-    </ErrorBoundary>
+    <ThemeWrapper>
+      <ErrorBoundary>
+        <SessionManager.Provider value={contextValue}>
+          <ToastContainer
+            position="top-left"
+            autoClose={5000}
+            closeOnClick
+            pauseOnFocusLoss
+            pauseOnHover
+            newestOnTop={false}
+            toastClassName={"custToast materialToast"}
+            {...toastOptions}
+          />
+          <VersionProtection appVersion={appVersion} />
+          {children}
+        </SessionManager.Provider>
+      </ErrorBoundary>
+    </ThemeWrapper>
   );
 };
 
