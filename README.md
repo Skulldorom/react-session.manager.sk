@@ -59,21 +59,6 @@ npm link react react-dom
 
 This project uses automated releases via GitHub Actions. To create a new release:
 
-**Option 1: Using PowerShell script (Windows)**
-
-```powershell
-# Patch release (2.0.7 -> 2.0.8)
-.\release.ps1 patch
-
-# Minor release (2.0.7 -> 2.1.0)
-.\release.ps1 minor
-
-# Major release (2.0.7 -> 3.0.0)
-.\release.ps1 major
-```
-
-**Option 2: Using npm scripts directly**
-
 ```bash
 # Patch release
 npm run release:patch
