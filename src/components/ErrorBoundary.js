@@ -34,7 +34,6 @@ class ErrorBoundary extends React.Component {
   }
 
   render() {
-    // Always render children - errors are handled via toast and console only
     return this.props.children;
   }
 }
