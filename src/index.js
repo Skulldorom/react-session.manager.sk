@@ -380,8 +380,8 @@ const SessionManagerProvider = ({
 
   // Show loading state while initializing
   return (
-    <ErrorBoundary>
-      <SessionManager.Provider value={contextValue}>
+    <SessionManager.Provider value={contextValue}>
+      <ErrorBoundary>
         <ToastContainer
           position="top-left"
           autoClose={5000}
@@ -393,9 +393,9 @@ const SessionManagerProvider = ({
           {...toastOptions}
         />
         <VersionProtection appVersion={appVersion} />
-        {children}
-      </SessionManager.Provider>
-    </ErrorBoundary>
+      </ErrorBoundary>
+      {children}
+    </SessionManager.Provider>
   );
 };
 
