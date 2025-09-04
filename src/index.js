@@ -7,7 +7,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./styling/toast.css";
 
-export const SessionManager = createContext({
+const SessionManager = createContext({
   isLoggedIn: null,
   header: null,
   isAdmin: null,
@@ -436,4 +436,5 @@ function VersionProtection({ appVersion }) {
   return <></>;
 }
 
+export { SessionManager, SessionManagerProvider };
 export default SessionManagerProvider;

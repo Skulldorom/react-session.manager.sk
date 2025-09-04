@@ -5,9 +5,15 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, "dist"),
     filename: "index.js",
-    library: "MyComponent",
-    libraryTarget: "umd",
-    umdNamedDefine: true,
+    library: {
+      type: "module",
+    },
+    environment: {
+      module: true,
+    },
+  },
+  experiments: {
+    outputModule: true,
   },
   externals: {
     react: "react", // Use 'react' from the environment (do not bundle)
