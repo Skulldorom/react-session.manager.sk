@@ -6,8 +6,8 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./styling/toast.css";
 
-// Icons
-import { GppBad, Update, BrowserUpdated, Logout } from "@mui/icons-material";
+// Local Icons
+import { GppBad, Update, BrowserUpdated, Logout } from "./components/Icons";
 
 const SessionManager = createContext({
   isLoggedIn: null,
