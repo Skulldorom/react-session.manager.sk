@@ -61,7 +61,7 @@ const SessionManagerProvider = ({
       setTimeout(() => {
         refreshToken()
           .then((data) => {
-            if (data.refreshed) {
+            if (data && data.access_token) {
               const token = `Bearer ${data.access_token}`;
               setCurrent(token);
               AuthenticatedAxiosObject.defaults.headers.common[
@@ -69,6 +69,14 @@ const SessionManagerProvider = ({
               ] = token;
               if (remember) localStorage.setItem("Authorization", token);
               sessionStorage.setItem("Authorization", token);
+
+              if (data.refreshed) {
+                console.log("Token was refreshed with new token");
+              } else {
+                console.log("Token is still valid, using existing token");
+              }
+            } else {
+              console.log("Token refresh failed - no valid response data");
             }
           })
           .catch((err) => {
@@ -105,10 +113,14 @@ const SessionManagerProvider = ({
     setTimeout(() => {
       userLoader()
         .then((res) => {
-          const data = res.data;
-          setCurrentLoggedIn(data.logged_in);
-          setIsAdmin(data.is_admin);
-          setUserInfo(data.Info);
+          if (res && res.data) {
+            const data = res.data;
+            setCurrentLoggedIn(data.logged_in);
+            setIsAdmin(data.is_admin);
+            setUserInfo(data.Info);
+          } else {
+            console.log("Invalid user data response");
+          }
         })
         .catch((err) => {
           console.log(err);
@@ -227,11 +239,20 @@ const SessionManagerProvider = ({
 
   useEffect(() => {
     if (refreshData) {
-      userLoader().then((res) => {
-        const data = res.data;
-        setUserInfo(data.Info);
-        setRefreshData(false);
-      });
+      userLoader()
+        .then((res) => {
+          if (res && res.data) {
+            const data = res.data;
+            setUserInfo(data.Info);
+          } else {
+            console.log("Invalid refresh data response");
+          }
+          setRefreshData(false);
+        })
+        .catch((err) => {
+          console.log("Error refreshing user data:", err);
+          setRefreshData(false);
+        });
     }
   }, [refreshData, userLoader]);
 
