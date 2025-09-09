@@ -1,4 +1,4 @@
-# react-session.mananger.sk
+# react-session.manager.sk
 
 This is used in conjunction with a custom flask app in order to manage user sessions.
 
