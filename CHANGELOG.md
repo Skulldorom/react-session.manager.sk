@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Separate error message for timeout errors to distinguish them from connection errors
+
 ### Changed
 
 - GitHub Actions now handles building and publishing automatically
