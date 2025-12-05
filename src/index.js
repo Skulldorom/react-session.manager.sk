@@ -202,11 +202,20 @@ const SessionManagerProvider = ({
           }
 
           if (!error?.response?.status) {
-            if (error?.code !== "ERR_CANCELED" && error?.message !== "canceled")
-              toast.error(
-                "The server is not responding, please reload or try again later.",
-                { toastId: "ERR_CONNECTION_REFUSED", icon: <GppBad /> }
-              );
+            if (error?.code !== "ERR_CANCELED" && error?.message !== "canceled") {
+              // Check if it's a timeout error
+              if (error?.code === "ECONNABORTED" || error?.code === "ETIMEDOUT") {
+                toast.error(
+                  "Request timed out. The server is taking too long to respond.",
+                  { toastId: "ERR_TIMEOUT", icon: <GppBad /> }
+                );
+              } else {
+                toast.error(
+                  "The server is not responding, please reload or try again later.",
+                  { toastId: "ERR_CONNECTION_REFUSED", icon: <GppBad /> }
+                );
+              }
+            }
           }
           throw error;
         }
