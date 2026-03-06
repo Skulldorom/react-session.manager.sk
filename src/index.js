@@ -318,14 +318,12 @@ function VersionProtection({ appVersion }) {
       versionCompare(appVersion, sessionStorage.getItem("requiredVersion"))
     ) {
       console.log("Update Success Toast");
+      sessionStorage.removeItem("appVersionOld");
+      sessionStorage.removeItem("requiredVersion");
+      sessionStorage.removeItem("appReloads");
       toast.success("Your application has been updated", {
         toastId: "appReload",
         icon: <BrowserUpdated />,
-        onClose: () => {
-          sessionStorage.removeItem("appVersionOld");
-          sessionStorage.removeItem("requiredVersion");
-          sessionStorage.removeItem("appReloads");
-        },
       });
     }
   }, [oldVersion]);
