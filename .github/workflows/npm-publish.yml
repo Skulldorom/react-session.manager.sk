@@ -28,6 +28,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,6 +84,4 @@ jobs:
           prerelease: false
 
       # Publish to NPM
-      - run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
+      - run: npm publish --provenance --access public
