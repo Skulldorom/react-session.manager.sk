@@ -19,6 +19,14 @@
     "preversion": "npm run build && npm test --if-present",
     "postversion": "node -e \"console.log('Version updated to ' + require('./package.json').version)\""
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Skulldorom/react-session.manager.sk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Skulldorom/react-session.manager.sk/issues"
+  },
+  "homepage": "https://github.com/Skulldorom/react-session.manager.sk#readme",
   "author": "Skulldorom",
   "license": "ISC",
   "devDependencies": {
