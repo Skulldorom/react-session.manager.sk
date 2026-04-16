@@ -57,6 +57,22 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(git log --pretty=format:"- %s" "${PREV_TAG}..HEAD")
+          else
+            NOTES=$(git log --pretty=format:"- %s")
+          fi
+          if [ -z "$NOTES" ]; then
+            NOTES="- Dependency updates and maintenance"
+          fi
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       # Use the chosen type on manual dispatch, default to patch on push
       - name: Bump version
         id: version
@@ -81,9 +97,9 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
           body: |
-            Changes in this Release
-            - Automatically generated version bump to ${{ steps.version.outputs.new_version }}
-            - Check [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for detailed changes
+            ## Changes in this Release
+
+            ${{ steps.release_notes.outputs.notes }}
           draft: false
           prerelease: false
 
