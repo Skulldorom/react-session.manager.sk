@@ -1,32 +1,187 @@
 # react-session.manager.sk
 
-This is used in conjunction with a custom flask app in order to manage user sessions.
+A React context provider for managing token-based user sessions in applications backed by a Flask API. It handles JWT token storage and refresh, device fingerprinting, app version enforcement, cross-tab session synchronisation, and user-facing toast notifications — all from a single wrapper component.
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Props](#props)
+- [Context API](#context-api)
+- [How It Works](#how-it-works)
+  - [Token Management](#token-management)
+  - [Device Fingerprinting](#device-fingerprinting)
+  - [Version Protection](#version-protection)
+  - [Axios Interceptors](#axios-interceptors)
+  - [Toast Notifications](#toast-notifications)
+- [Dependencies](#dependencies)
+- [License](#license)
+
+---
+
+## Features
+
+- **Automatic token refresh** on a configurable interval
+- **Persistent sessions** via `localStorage` (remember me) or `sessionStorage`
+- **Cross-tab synchronisation** — a login in one tab is picked up by all open tabs
+- **Device fingerprinting** — generates a stable `deviceUID` and attaches it to every request header
+- **App version enforcement** — detects when the server requires a newer client version and prompts the user to update
+- **Axios interceptor** — centrally handles `455` (session expired) and `426` (upgrade required) status codes
+- **Toast notifications** via [react-toastify](https://fkhadra.github.io/react-toastify/) for session, connection, and version events
+- **Role-based access** helper via the `hasRole` context function
+
+---
 
 ## Installation
 
-```
+```bash
 npm install react-session.manager.sk
 ```
 
-## Usage
+---
 
-```
-<SessionManagerProvider
-    userLoader={who} // function to get user data
-    refreshToken={refresh} // function to refresh token
-    AuthenticatedAxiosObject={axiosAuth} // axios object with token
-    refreshTimer={config.server.tokenRefreshTimer} // time to refresh token
-    dataRefresh={config.server.dataRefreshTimer} // time to refresh data
-    appVersion={config.appVersion} // app version
-    toastOptions={{
-    icon: true,
-    toastClassName: config.theme.Notification.ThemeNotifications
-        ? config.theme.Notification.MaterialNotifications
-        ? "custToast materialToast"
-        : "custToast"
-        : "",
-    }}
+## Quick Start
+
+Wrap your application with `SessionManagerProvider` and pass the required props:
+
+```jsx
+import SessionManagerProvider from "react-session.manager.sk";
+import axiosAuth from "./axiosAuth"; // your pre-configured axios instance
+import { whoAmI, refreshToken } from "./api";
+
+function Root() {
+  return (
+    <SessionManagerProvider
+      userLoader={whoAmI}
+      refreshToken={refreshToken}
+      AuthenticatedAxiosObject={axiosAuth}
+      refreshTimer={15}
+      dataRefresh={30}
+      appVersion="1.0.0"
+      toastOptions={{ position: "top-right" }}
     >
-        <App />
-</SessionManagerProvider>
+      <App />
+    </SessionManagerProvider>
+  );
+}
 ```
+
+Consume the session context anywhere inside your app:
+
+```jsx
+import { useContext } from "react";
+import { SessionManager } from "react-session.manager.sk";
+
+function Profile() {
+  const { isLoggedIn, userInfo, isAdmin, hasRole, setLoggedin } =
+    useContext(SessionManager);
+
+  if (!isLoggedIn) return <p>Please log in.</p>;
+
+  return (
+    <div>
+      <p>Welcome, {userInfo?.name}</p>
+      {isAdmin && <p>You are an administrator.</p>}
+      {hasRole(["editor"]) && <p>You have editor access.</p>}
+      <button onClick={() => setLoggedin(false)}>Log out</button>
+    </div>
+  );
+}
+```
+
+---
+
+## Props
+
+| Prop | Type | Required | Description |
+|---|---|---|---|
+| `AuthenticatedAxiosObject` | `AxiosInstance` | ✅ | An axios instance. The provider attaches `Authorization`, `deviceUID`, and `appVersion` headers to it automatically. |
+| `userLoader` | `() => Promise` | ✅ | Async function that fetches the current user. Must resolve to `{ data: { logged_in, is_admin, Info } }`. |
+| `refreshToken` | `() => Promise` | ✅ | Async function that refreshes the JWT. Must resolve to `{ access_token, refreshed? }`. |
+| `refreshTimer` | `number` | | Minutes between automatic token refresh attempts. Defaults to `60`. |
+| `dataRefresh` | `number` | | Minutes between automatic user-data refresh calls. Defaults to `60`. |
+| `appVersion` | `string` | | Semver string of the current client build (e.g. `"1.2.3"`). Used for version comparison against server requirements. |
+| `toastOptions` | `object` | | Any valid [react-toastify `ToastContainer` props](https://fkhadra.github.io/react-toastify/api/toast-container) to customise notification behaviour. |
+| `children` | `ReactNode` | ✅ | Your application tree. |
+
+---
+
+## Context API
+
+Import the `SessionManager` context object and read it with `useContext`:
+
+```js
+import { SessionManager } from "react-session.manager.sk";
+const session = useContext(SessionManager);
+```
+
+| Property | Type | Description |
+|---|---|---|
+| `isLoggedIn` | `boolean` | Whether the current user is authenticated. |
+| `loadingUser` | `boolean` | `true` while the initial `userLoader` call is in flight. |
+| `userInfo` | `object` | The `Info` object returned by `userLoader`. Shape is determined by your API. |
+| `isAdmin` | `boolean` | Mirrors `is_admin` from the `userLoader` response. |
+| `header` | `string` | The current `Authorization` header value (e.g. `"Bearer <token>"`). |
+| `deviceUID` | `string` | The stable device fingerprint stored in `localStorage`. |
+| `refreshData` | `boolean` | Flag that is set to `true` when a periodic data refresh is due. |
+| `setHeader` | `(token: string) => void` | Manually set the `Authorization` header (e.g. after a successful login). |
+| `setLoggedin` | `(status: boolean) => void` | Manually update the logged-in state (e.g. after logout). |
+| `setRefreshData` | `(status: boolean) => void` | Manually trigger or clear a data refresh cycle. |
+| `hasRole` | `(roles: string[]) => boolean` | Returns `true` if `userInfo.roles` contains any of the provided role strings. |
+
+---
+
+## How It Works
+
+### Token Management
+
+On mount the provider checks `localStorage` and `sessionStorage` for a stored `Authorization` token. If found it immediately calls `refreshToken` to validate/rotate it, then re-stores the result. A `setInterval` continues to call `refreshToken` every `refreshTimer` minutes while the user is logged in.
+
+Storing a token in `localStorage` means the session persists across browser restarts ("remember me"). `sessionStorage` tokens expire when the tab is closed.
+
+### Device Fingerprinting
+
+On first load the provider uses [ClientJS](https://clientjs.org/) to generate a browser fingerprint. This value is persisted to `localStorage` as `deviceUID` and is automatically added to every outgoing request as a custom `deviceUID` header. Subsequent loads reuse the cached value.
+
+### Version Protection
+
+Every request includes the current `appVersion` header. If the server responds with HTTP `426 Upgrade Required` the provider:
+
+1. Stores the minimum required version in `sessionStorage`.
+2. Reloads the page up to twice to pick up the latest build from the cache.
+3. If reloading does not satisfy the version requirement, shows a warning toast asking the user to wait and reload manually.
+
+After a successful reload, if the new client version satisfies the server's requirement a success toast is shown confirming the update.
+
+### Axios Interceptors
+
+The provider registers a response interceptor on `AuthenticatedAxiosObject`:
+
+| Status | Behaviour |
+|---|---|
+| `455` | Session is no longer valid. Clears the auth state and shows an info toast prompting the user to log in again. |
+| `426` | App version is too old — triggers the version protection flow described above. |
+| No response / timeout | Shows an error toast indicating the server is unreachable or the request timed out. |
+| `ERR_CANCELED` | Silently ignored (e.g. aborted requests). |
+
+### Toast Notifications
+
+All notifications are rendered via a `<ToastContainer>` mounted inside the provider. You can customise its behaviour with the `toastOptions` prop (accepts any props that `<ToastContainer>` accepts). Custom CSS classes can be passed through `toastClassName`.
+
+---
+
+## Dependencies
+
+| Package | Role |
+|---|---|
+| [react-toastify](https://www.npmjs.com/package/react-toastify) | In-app toast notifications |
+| [clientjs](https://www.npmjs.com/package/clientjs) | Browser fingerprinting for `deviceUID` |
+
+---
+
+## License
+
+ISC © [Skulldorom](https://github.com/Skulldorom)
