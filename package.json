@@ -1,6 +1,6 @@
 {
   "name": "react-session.manager.sk",
-  "version": "2.1.5",
+  "version": "2.1.7",
   "description": "A react component used to manage token sessions with flask backend",
   "main": "./dist/index.js",
   "files": [
@@ -17,8 +17,16 @@
     "release:minor": "npm run version:minor && git push --follow-tags",
     "release:major": "npm run version:major && git push --follow-tags",
     "preversion": "npm run build && npm test --if-present",
-    "postversion": "echo \"Version updated to $(node -p \\\"require('./package.json').version\\\")\""
+    "postversion": "node -e \"console.log('Version updated to ' + require('./package.json').version)\""
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Skulldorom/react-session.manager.sk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Skulldorom/react-session.manager.sk/issues"
+  },
+  "homepage": "https://github.com/Skulldorom/react-session.manager.sk#readme",
   "author": "Skulldorom",
   "license": "ISC",
   "devDependencies": {
