@@ -99,6 +99,18 @@ const SessionManagerProvider = ({
     // No cleanup needed here since fromPrevious doesn't create intervals
   }, [fromPrevious]);
 
+  // Watch for Authorization token updates from other tabs via localStorage
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key === "Authorization" && event.newValue) {
+        fromPrevious(event.newValue, true);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [fromPrevious]);
+
   // Wrap setHeader to store new header names in localStorage
   const setHeader = (header) => {
     setCurrent(header);
