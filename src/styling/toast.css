@@ -6,51 +6,51 @@
 }
 
 .custToast {
-  background: var(--themec);
+  background: var(--themec) !important;
 }
 .custToast .Toastify__close-button {
-  color: var(--main);
+  color: var(--main) !important;
 }
 
 .custToast.Toastify__toast--success {
-  color: var(--success);
+  color: var(--success) !important;
 }
 .custToast.Toastify__toast--info {
-  color: var(--info);
+  color: var(--info) !important;
 }
 .custToast.Toastify__toast--warning {
-  color: var(--warning);
+  color: var(--warning) !important;
 }
 .custToast.Toastify__toast--error {
-  color: var(--error);
+  color: var(--error) !important;
 }
 
 .custToast .Toastify__progress-bar--success {
-  background: var(--success);
+  background: var(--success) !important;
 }
 .custToast .Toastify__progress-bar--info {
-  background: var(--info);
+  background: var(--info) !important;
 }
 .custToast .Toastify__progress-bar--warning {
-  background: var(--warning);
+  background: var(--warning) !important;
 }
 .custToast .Toastify__progress-bar--error {
-  background: var(--error);
+  background: var(--error) !important;
 }
 
 .custToast.materialToast.Toastify__toast--success {
-  background: var(--success);
-  color: var(--contrastText);
+  background: var(--success) !important;
+  color: var(--contrastText) !important;
 }
 .custToast.materialToast.Toastify__toast--info {
-  background: var(--info);
-  color: var(--contrastText);
+  background: var(--info) !important;
+  color: var(--contrastText) !important;
 }
 .custToast.materialToast.Toastify__toast--warning {
-  background: var(--warning);
-  color: var(--contrastText);
+  background: var(--warning) !important;
+  color: var(--contrastText) !important;
 }
 .custToast.materialToast.Toastify__toast--error {
-  background: var(--error);
-  color: var(--contrastText);
+  background: var(--error) !important;
+  color: var(--contrastText) !important;
 }
