@@ -196,12 +196,12 @@ const SessionManagerProvider = ({
               "requiredVersion",
               error.response.data.minVersion
             );
-            let reloads = sessionStorage.getItem("appReloads") || 0;
+            let reloads = parseInt(sessionStorage.getItem("appReloads") || 0);
             if (reloads < 2) {
               sessionStorage.setItem("appReloads", reloads + 1);
               setTimeout(() => {
                 window.location.reload();
-              }, 1000 * reloads);
+              }, 1000 * (reloads + 1));
             } else {
               toast.warning(
                 "The application needs to be updated please wait for some time then reload the page.",
