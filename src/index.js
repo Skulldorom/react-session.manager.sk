@@ -206,6 +206,7 @@ const SessionManagerProvider = ({
                     .then((cacheNames) =>
                       Promise.all(cacheNames.map((name) => caches.delete(name)))
                     )
+                    .catch((err) => console.log("Cache clear error:", err))
                     .finally(() => window.location.reload());
                 } else {
                   window.location.reload();
