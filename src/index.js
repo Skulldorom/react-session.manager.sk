@@ -200,7 +200,17 @@ const SessionManagerProvider = ({
             if (reloads < 2) {
               sessionStorage.setItem("appReloads", reloads + 1);
               setTimeout(() => {
-                window.location.reload();
+                if ("caches" in window) {
+                  caches
+                    .keys()
+                    .then((cacheNames) =>
+                      Promise.all(cacheNames.map((name) => caches.delete(name)))
+                    )
+                    .catch((err) => console.log("Cache clear error:", err))
+                    .finally(() => window.location.reload());
+                } else {
+                  window.location.reload();
+                }
               }, 1000 * (reloads + 1));
             } else {
               toast.warning(
