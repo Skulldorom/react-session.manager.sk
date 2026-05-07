@@ -1,5 +1,3 @@
-import React from "react";
-
 // Icon component wrapper
 const Icon = ({ children, size = 24, color = "currentColor", ...props }) => (
   <svg
