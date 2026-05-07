@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "webpack --mode production",
-    "test": "node --test tests",
+    "test": "node --test tests/*.test.mjs",
     "lint": "eslint src/**/*.{js,jsx}",
     "lint:fix": "eslint src/**/*.{js,jsx} --fix",
     "format": "prettier --write src/**/*.{js,jsx,css}",
