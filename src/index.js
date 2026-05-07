@@ -1,13 +1,14 @@
 import React, { createContext, useState, useEffect, useCallback } from "react";
 import versionCompare from "./components/versionCompare";
 import getDeviceFingerprint from "./components/FingerPrint";
+import handleApiError from "./components/handleApiError";
 // Notifications
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./styling/toast.css";
 
 // Local Icons
-import { GppBad, Update, BrowserUpdated, Logout } from "./components/Icons";
+import { BrowserUpdated, Logout } from "./components/Icons";
 
 const SessionManager = createContext({
   isLoggedIn: null,
@@ -76,14 +77,22 @@ const SessionManagerProvider = ({
                 console.log("Token is still valid, using existing token");
               }
             } else {
-              console.log("Token refresh failed - no valid response data");
+              localStorage.removeItem("Authorization");
+              sessionStorage.removeItem("Authorization");
+              toast.warn(
+                "Your session could not be restored. Please log in again.",
+                { toastId: "TOKEN_REFRESH_FAILED", icon: <Logout /> }
+              );
             }
           })
           .catch((err) => {
             console.log(err);
-            console.log("Missing/Invalid Token");
             localStorage.removeItem("Authorization");
             sessionStorage.removeItem("Authorization");
+            toast.warn(
+              "Your session could not be restored. Please log in again.",
+              { toastId: "TOKEN_REFRESH_FAILED", icon: <Logout /> }
+            );
           });
       }, 100);
     },
@@ -166,94 +175,20 @@ const SessionManagerProvider = ({
   }, [current, fromPrevious, currentLoggin, refreshTimer]);
 
   useEffect(() => {
-    const customInterceptor = () => {
-      AuthenticatedAxiosObject.interceptors.response.use(
-        (response) => {
-          return response;
-        },
-        (error) => {
-          if (error?.response?.status === 455) {
-            try {
-              const status = error.response.data.logged_in || false;
-              if (!status) {
-                console.log("Session ended");
-                setCurrentLoggedIn(false);
-                AuthenticatedAxiosObject.defaults.headers.common[
-                  "Authorization"
-                ] = ``;
-                toast.info(
-                  "Your session in no longer valid, please login again.",
-                  { toastId: "Forced_log_out", icon: <Logout /> }
-                );
-              }
-            } catch (err) {
-              throw err;
-            }
-          }
-          if (error?.response?.status === 426) {
-            sessionStorage.setItem("appVersionOld", true);
-            sessionStorage.setItem(
-              "requiredVersion",
-              error.response.data.minVersion
-            );
-            let reloads = parseInt(sessionStorage.getItem("appReloads") || 0);
-            if (reloads < 2) {
-              sessionStorage.setItem("appReloads", reloads + 1);
-              setTimeout(() => {
-                if ("caches" in window) {
-                  caches
-                    .keys()
-                    .then((cacheNames) =>
-                      Promise.all(cacheNames.map((name) => caches.delete(name)))
-                    )
-                    .catch((err) => console.log("Cache clear error:", err))
-                    .finally(() => window.location.reload());
-                } else {
-                  window.location.reload();
-                }
-              }, 1000 * (reloads + 1));
-            } else {
-              toast.warning(
-                "The application needs to be updated please wait for some time then reload the page.",
-                {
-                  toastId: "appReloadError",
-                  icon: <Update />,
-                }
-              );
-            }
-          }
-
-          if (!error?.response?.status) {
-            if (error?.code !== "ERR_CANCELED" && error?.message !== "canceled") {
-              // Check if it's a timeout error
-              if (error?.code === "ECONNABORTED" || error?.code === "ETIMEDOUT") {
-                toast.error(
-                  "Request timed out. The server is taking too long to respond.",
-                  { toastId: "ERR_TIMEOUT", icon: <GppBad /> }
-                );
-              } else {
-                toast.error(
-                  "The server is not responding, please reload or try again later.",
-                  { toastId: "ERR_CONNECTION_REFUSED", icon: <GppBad /> }
-                );
-              }
-            }
-          }
-          throw error;
-        }
-      );
+    const onSessionExpired = () => {
+      setCurrentLoggedIn(false);
+      AuthenticatedAxiosObject.defaults.headers.common["Authorization"] = "";
     };
 
-    // Call the interceptor setup
-    customInterceptor();
+    const interceptorId = AuthenticatedAxiosObject.interceptors.response.use(
+      (response) => response,
+      (error) => handleApiError(error, { onSessionExpired })
+    );
 
-    // Cleanup function to remove interceptors
     return () => {
-      if (AuthenticatedAxiosObject?.interceptors?.response) {
-        AuthenticatedAxiosObject.interceptors.response.clear();
-      }
+      AuthenticatedAxiosObject.interceptors.response.eject(interceptorId);
     };
-  }, [AuthenticatedAxiosObject, currentLoggin]);
+  }, [AuthenticatedAxiosObject]);
 
   // We will use the below to refresh our data about the user when ever we flag refreshData as true
   const [refreshData, setRefreshFlag] = useState(false);
