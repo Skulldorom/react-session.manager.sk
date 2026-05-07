@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { toast } from "react-toastify";
 import versionCompare from "./versionCompare";
 import { BrowserUpdated } from "./Icons";

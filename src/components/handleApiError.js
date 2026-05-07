@@ -1,3 +1,4 @@
+import React from "react";
 import { toast } from "react-toastify";
 import { GppBad, Update, Logout } from "./Icons";
 

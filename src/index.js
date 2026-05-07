@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useState, useEffect, useCallback } from "react";
 import handleApiError from "./components/handleApiError";
 import VersionProtection from "./components/VersionProtection";
 import useDeviceFingerprint from "./hooks/useDeviceFingerprint";
