@@ -20,7 +20,26 @@ on:
           - major
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # Ensures GitHub Actions runner uses Node 24 for action internals
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
   build-and-publish:
+    needs: test
     # Skip push events triggered by the version-bump commit to avoid an infinite loop.
     # workflow_dispatch events are always allowed through.
     if: "github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, 'chore: bump version')"
@@ -45,9 +64,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run tests
-        run: npm test
 
       - name: Build package
         run: npm run build

@@ -17,6 +17,7 @@ A React context provider for managing token-based user sessions in applications 
   - [Version Protection](#version-protection)
   - [Axios Interceptors](#axios-interceptors)
   - [Toast Notifications](#toast-notifications)
+- [Development](#development)
 - [Dependencies](#dependencies)
 - [License](#license)
 
@@ -29,7 +30,7 @@ A React context provider for managing token-based user sessions in applications 
 - **Cross-tab synchronisation** — a login in one tab is picked up by all open tabs
 - **Device fingerprinting** — generates a stable `deviceUID` and attaches it to every request header
 - **App version enforcement** — detects when the server requires a newer client version and prompts the user to update
-- **Axios interceptor** — centrally handles `455` (session expired) and `426` (upgrade required) status codes
+- **Axios interceptor** — centrally handles `401`, `403`, `426`, `455`, `500`, `503`, and network/timeout errors
 - **Toast notifications** via [react-toastify](https://fkhadra.github.io/react-toastify/) for session, connection, and version events
 - **Role-based access** helper via the `hasRole` context function
 
@@ -162,14 +163,36 @@ The provider registers a response interceptor on `AuthenticatedAxiosObject`:
 
 | Status | Behaviour |
 |---|---|
-| `455` | Session is no longer valid. Clears the auth state and shows an info toast prompting the user to log in again. |
-| `426` | App version is too old — triggers the version protection flow described above. |
-| No response / timeout | Shows an error toast indicating the server is unreachable or the request timed out. |
-| `ERR_CANCELED` | Silently ignored (e.g. aborted requests). |
+| `401` | Unauthorized — clears auth state via `onSessionExpired` and shows an error toast. |
+| `403` | Forbidden — shows an error toast. Auth state is not cleared. |
+| `426` | App version too old — triggers the version protection flow described above. |
+| `455` | Session no longer valid — clears auth state and shows an info toast prompting re-login. |
+| `500` | Internal server error — shows an error toast. |
+| `503` | Service unavailable — shows an error toast. |
+| Timeout (`ECONNABORTED` / `ETIMEDOUT`) | Shows an error toast telling the user the server is taking too long to respond. |
+| No response (other network error) | Shows an error toast telling the user the server is not responding. |
+| `ERR_CANCELED` / `canceled` | Silently ignored (e.g. aborted requests). |
 
 ### Toast Notifications
 
-All notifications are rendered via a `<ToastContainer>` mounted inside the provider. You can customise its behaviour with the `toastOptions` prop (accepts any props that `<ToastContainer>` accepts). Custom CSS classes can be passed through `toastClassName`.
+All notifications are rendered via a `<ToastContainer>` mounted inside the provider. You can customise its behaviour with the `toastOptions` prop — it accepts any props that `<ToastContainer>` accepts, including `toastClassName` for custom CSS classes.
+
+---
+
+## Development
+
+```bash
+# Install dependencies
+npm ci
+
+# Run the test suite (Node ≥ 22 required)
+npm test
+
+# Build the distributable bundle
+npm run build
+```
+
+Tests live in the `tests/` directory and use Node's built-in `node:test` runner. The CI workflow runs tests in a dedicated **test** job before **build-and-publish**, so a failing test blocks the release.
 
 ---
 
