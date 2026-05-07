@@ -1,4 +1,3 @@
-import React from "react";
 import { toast } from "react-toastify";
 import { GppBad, Update, Logout } from "./Icons";
 
@@ -32,26 +31,26 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
 
     case 426: {
       sessionStorage.setItem("appVersionOld", true);
-      sessionStorage.setItem(
-        "requiredVersion",
-        error.response.data.minVersion
-      );
+      sessionStorage.setItem("requiredVersion", error.response.data.minVersion);
       const reloads = parseInt(sessionStorage.getItem("appReloads") || 0);
       if (reloads < 2) {
         sessionStorage.setItem("appReloads", reloads + 1);
-        setTimeout(() => {
-          if ("caches" in window) {
-            caches
-              .keys()
-              .then((cacheNames) =>
-                Promise.all(cacheNames.map((name) => caches.delete(name)))
-              )
-              .catch((err) => console.log("Cache clear error:", err))
-              .finally(() => window.location.reload());
-          } else {
-            window.location.reload();
-          }
-        }, 1000 * (reloads + 1));
+        setTimeout(
+          () => {
+            if ("caches" in window) {
+              caches
+                .keys()
+                .then((cacheNames) =>
+                  Promise.all(cacheNames.map((name) => caches.delete(name)))
+                )
+                .catch((err) => console.log("Cache clear error:", err))
+                .finally(() => window.location.reload());
+            } else {
+              window.location.reload();
+            }
+          },
+          1000 * (reloads + 1)
+        );
       } else {
         toast.warning(
           "The application needs to be updated please wait for some time then reload the page.",
@@ -89,14 +88,8 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
 
     default:
       if (!status) {
-        if (
-          error?.code !== "ERR_CANCELED" &&
-          error?.message !== "canceled"
-        ) {
-          if (
-            error?.code === "ECONNABORTED" ||
-            error?.code === "ETIMEDOUT"
-          ) {
+        if (error?.code !== "ERR_CANCELED" && error?.message !== "canceled") {
+          if (error?.code === "ECONNABORTED" || error?.code === "ETIMEDOUT") {
             toast.error(
               "Request timed out. The server is taking too long to respond.",
               { toastId: "ERR_TIMEOUT", icon: <GppBad /> }

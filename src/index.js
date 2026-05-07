@@ -1,14 +1,12 @@
-import React, { createContext, useState, useEffect, useCallback } from "react";
-import versionCompare from "./components/versionCompare";
-import getDeviceFingerprint from "./components/FingerPrint";
+import { createContext, useState, useEffect, useCallback } from "react";
 import handleApiError from "./components/handleApiError";
+import VersionProtection from "./components/VersionProtection";
+import useDeviceFingerprint from "./hooks/useDeviceFingerprint";
+import { Logout } from "./components/Icons";
 // Notifications
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./styling/toast.css";
-
-// Local Icons
-import { BrowserUpdated, Logout } from "./components/Icons";
 
 const SessionManager = createContext({
   isLoggedIn: null,
@@ -34,21 +32,9 @@ const SessionManagerProvider = ({
   toastOptions,
   children,
 }) => {
-  // Set deivce UID
-  const [deviceUID, setDeviceUID] = useState(
-    localStorage.getItem("deviceUID") || false
-  );
+  const deviceUID = useDeviceFingerprint(AuthenticatedAxiosObject);
 
-  useEffect(() => {
-    if (!deviceUID) {
-      const uid = getDeviceFingerprint();
-      setDeviceUID(uid);
-      localStorage.setItem("deviceUID", uid);
-      AuthenticatedAxiosObject.defaults.headers.common["deviceUID"] = uid;
-    }
-  }, [deviceUID, AuthenticatedAxiosObject]);
-
-  // State to hold the selected header name
+  // State to hold the current Authorization header value
   const [current, setCurrent] = useState("");
 
   AuthenticatedAxiosObject.defaults.withCredentials = true;
@@ -56,7 +42,7 @@ const SessionManagerProvider = ({
   AuthenticatedAxiosObject.defaults.headers.common["deviceUID"] = deviceUID;
   AuthenticatedAxiosObject.defaults.headers.common["appVersion"] = appVersion;
 
-  const fromPrevious = useCallback(
+  const restoreSession = useCallback(
     (auth, remember) => {
       setCurrent(auth);
       setTimeout(() => {
@@ -99,31 +85,28 @@ const SessionManagerProvider = ({
     [AuthenticatedAxiosObject, refreshToken]
   );
 
+  // Restore session from storage on mount
   useEffect(() => {
-    const local_auth = localStorage.getItem("Authorization");
-    const sess_auth = sessionStorage.getItem("Authorization");
+    const localAuth = localStorage.getItem("Authorization");
+    const sessAuth = sessionStorage.getItem("Authorization");
 
-    if (local_auth) fromPrevious(local_auth, true);
-    else if (sess_auth) fromPrevious(sess_auth, false);
-    // No cleanup needed here since fromPrevious doesn't create intervals
-  }, [fromPrevious]);
+    if (localAuth) restoreSession(localAuth, true);
+    else if (sessAuth) restoreSession(sessAuth, false);
+  }, [restoreSession]);
 
   // Watch for Authorization token updates from other tabs via localStorage
   useEffect(() => {
     const handleStorageChange = (event) => {
       if (event.key === "Authorization" && event.newValue) {
-        fromPrevious(event.newValue, true);
+        restoreSession(event.newValue, true);
       }
     };
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [fromPrevious]);
+  }, [restoreSession]);
 
-  // Wrap setHeader to store new header names in localStorage
-  const setHeader = (header) => {
-    setCurrent(header);
-  };
+  const setHeader = (header) => setCurrent(header);
 
   const [currentLoggin, setCurrentLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -152,28 +135,23 @@ const SessionManagerProvider = ({
     }, 100);
   }, [current, currentLoggin, userLoader]);
 
-  const setLoggedin = (status) => {
-    setCurrentLoggedIn(status);
-  };
+  const setLoggedin = (status) => setCurrentLoggedIn(status);
 
+  // Periodically refresh the token while logged in
   useEffect(() => {
-    const tokenRefreshTimer = () => {
-      const mins = refreshTimer || 60;
-      return mins * 60 * 1000 || 10000;
-    };
+    const intervalMs = (refreshTimer || 60) * 60 * 1000;
 
-    let interval = null;
-    if (currentLoggin) {
-      const remember = localStorage.getItem("Authorization") ? true : false;
-      interval = setInterval(() => {
-        fromPrevious(sessionStorage.getItem("Authorization"), remember);
-      }, tokenRefreshTimer());
-    } else {
-      clearInterval(interval);
-    }
+    if (!currentLoggin) return;
+
+    const remember = Boolean(localStorage.getItem("Authorization"));
+    const interval = setInterval(() => {
+      restoreSession(sessionStorage.getItem("Authorization"), remember);
+    }, intervalMs);
+
     return () => clearInterval(interval);
-  }, [current, fromPrevious, currentLoggin, refreshTimer]);
+  }, [current, restoreSession, currentLoggin, refreshTimer]);
 
+  // Eject/re-register the Axios response interceptor when the instance changes
   useEffect(() => {
     const onSessionExpired = () => {
       setCurrentLoggedIn(false);
@@ -190,64 +168,53 @@ const SessionManagerProvider = ({
     };
   }, [AuthenticatedAxiosObject]);
 
-  // We will use the below to refresh our data about the user when ever we flag refreshData as true
+  // Periodic user-data refresh flag
   const [refreshData, setRefreshFlag] = useState(false);
 
   useEffect(() => {
-    const refreshDelay = () => {
-      const mins = dataRefresh || 60;
-      return mins * 60 * 1000 || 10000;
-    };
-
-    const timer = setTimeout(() => setRefreshFlag(true), refreshDelay());
+    const delayMs = (dataRefresh || 60) * 60 * 1000;
+    const timer = setTimeout(() => setRefreshFlag(true), delayMs);
     return () => clearTimeout(timer);
   }, [dataRefresh]);
 
   useEffect(() => {
-    if (refreshData) {
-      userLoader()
-        .then((res) => {
-          if (res && res.data) {
-            const data = res.data;
-            setUserInfo(data.Info);
-          } else {
-            console.log("Invalid refresh data response");
-          }
-          setRefreshData(false);
-        })
-        .catch((err) => {
-          console.log("Error refreshing user data:", err);
-          setRefreshData(false);
-        });
-    }
+    if (!refreshData) return;
+
+    userLoader()
+      .then((res) => {
+        if (res && res.data) {
+          setUserInfo(res.data.Info);
+        } else {
+          console.log("Invalid refresh data response");
+        }
+      })
+      .catch((err) => {
+        console.log("Error refreshing user data:", err);
+      })
+      .finally(() => {
+        setRefreshFlag(false);
+      });
   }, [refreshData, userLoader]);
 
-  const setRefreshData = (status) => {
-    setRefreshFlag(status);
-  };
+  const setRefreshData = (status) => setRefreshFlag(status);
 
-  // Check if user has specific role
-
-  const hasRole = (roles) => {
-    const found = roles.some((r) => userInfo?.roles?.indexOf(r) >= 0);
-    return found;
-  };
+  const hasRole = (roles) =>
+    roles.some((r) => userInfo?.roles?.indexOf(r) >= 0);
 
   const contextValue = {
     isLoggedIn: currentLoggin,
     header: current,
-    isAdmin: isAdmin,
-    userInfo: userInfo,
-    refreshData: refreshData,
-    setHeader: setHeader,
-    setLoggedin: setLoggedin,
-    setRefreshData: setRefreshData,
-    hasRole: hasRole,
-    deviceUID: deviceUID,
-    loadingUser: loadingUser,
+    isAdmin,
+    userInfo,
+    refreshData,
+    setHeader,
+    setLoggedin,
+    setRefreshData,
+    hasRole,
+    deviceUID,
+    loadingUser,
   };
 
-  // Show loading state while initializing
   return (
     <SessionManager.Provider value={contextValue}>
       <ToastContainer
@@ -265,28 +232,6 @@ const SessionManagerProvider = ({
     </SessionManager.Provider>
   );
 };
-
-function VersionProtection({ appVersion }) {
-  const oldVersion = sessionStorage.getItem("appVersionOld") || false;
-  useEffect(() => {
-    if (
-      oldVersion &&
-      sessionStorage.getItem("requiredVersion") &&
-      versionCompare(appVersion, sessionStorage.getItem("requiredVersion"))
-    ) {
-      console.log("Update Success Toast");
-      sessionStorage.removeItem("appVersionOld");
-      sessionStorage.removeItem("requiredVersion");
-      sessionStorage.removeItem("appReloads");
-      toast.success("Your application has been updated", {
-        toastId: "appReload",
-        icon: <BrowserUpdated />,
-      });
-    }
-  }, [oldVersion]);
-
-  return <></>;
-}
 
 export { SessionManager, SessionManagerProvider };
 export default SessionManagerProvider;
