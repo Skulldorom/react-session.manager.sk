@@ -11,7 +11,6 @@ function VersionProtection({ appVersion }) {
       sessionStorage.getItem("requiredVersion") &&
       versionCompare(appVersion, sessionStorage.getItem("requiredVersion"))
     ) {
-      console.log("Update Success Toast");
       sessionStorage.removeItem("appVersionOld");
       sessionStorage.removeItem("requiredVersion");
       sessionStorage.removeItem("appReloads");

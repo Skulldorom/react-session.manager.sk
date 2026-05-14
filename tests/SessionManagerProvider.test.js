@@ -330,7 +330,7 @@ describe("SessionManagerProvider", () => {
       });
 
       // Flush all async work and confirm refreshToken was never called
-      await new Promise((r) => setTimeout(r, 200));
+      await act(async () => jest.advanceTimersByTime(300));
       expect(refreshToken).not.toHaveBeenCalled();
     });
   });
