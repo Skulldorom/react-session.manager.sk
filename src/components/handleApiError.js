@@ -52,10 +52,22 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
           1000 * (reloads + 1)
         );
       } else {
-        toast.warning(
-          "The application needs to be updated please wait for some time then reload the page.",
-          { toastId: "appReloadError", icon: <Update /> }
-        );
+        let updateMessage =
+          "The application needs to be updated please wait for some time then reload the page.";
+        // Check if the user can run shift + ctrl + F5
+        const canForceReload =
+          typeof window !== "undefined" &&
+          window.location &&
+          window.location.reload;
+        if (canForceReload) {
+          updateMessage +=
+            " Try pressing Shift + Ctrl + F5 to force reload the page.";
+        }
+
+        toast.warning(updateMessage, {
+          toastId: "appReloadError",
+          icon: <Update />,
+        });
       }
       break;
     }
