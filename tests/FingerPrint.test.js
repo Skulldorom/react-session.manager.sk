@@ -29,6 +29,12 @@ describe("getDeviceFingerprint", () => {
     expect(result).toBe("fp-visitorId-123");
   });
 
+  it("returns a string fingerprint value", async () => {
+    const result = await getDeviceFingerprint();
+
+    expect(typeof result).toBe("string");
+  });
+
   it("persists the newly generated fingerprint to localStorage", async () => {
     await getDeviceFingerprint();
 
