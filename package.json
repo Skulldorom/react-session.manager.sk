@@ -55,7 +55,7 @@
     "webpack-cli": "^7.0.2"
   },
   "dependencies": {
-    "clientjs": "^0.2.1",
+    "@fingerprintjs/fingerprintjs": "^5.2.0",
     "react-toastify": "^11.1.0"
   }
 }
