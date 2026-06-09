@@ -147,6 +147,12 @@ Storing a token in `localStorage` means the session persists across browser rest
 
 On first load the provider uses [ClientJS](https://clientjs.org/) to generate a browser fingerprint. This value is persisted to `localStorage` as `deviceUID` and is automatically added to every outgoing request as a custom `deviceUID` header. Subsequent loads reuse the cached value.
 
+You can also use the fingerprint helper directly in your own code:
+
+```js
+import { getDeviceFingerprint } from "react-session.manager.sk";
+```
+
 ### Version Protection
 
 Every request includes the current `appVersion` header. If the server responds with HTTP `426 Upgrade Required` the provider:

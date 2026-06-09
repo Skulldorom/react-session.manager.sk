@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useCallback } from "react";
 import handleApiError from "./components/handleApiError";
 import VersionProtection from "./components/VersionProtection";
+import getDeviceFingerprint from "./components/FingerPrint";
 import useDeviceFingerprint from "./hooks/useDeviceFingerprint";
 import { Logout } from "./components/Icons";
 // Notifications
@@ -233,5 +234,5 @@ const SessionManagerProvider = ({
   );
 };
 
-export { SessionManager, SessionManagerProvider };
+export { SessionManager, SessionManagerProvider, getDeviceFingerprint };
 export default SessionManagerProvider;
