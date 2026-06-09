@@ -19,11 +19,15 @@ function useDeviceFingerprint(axiosInstance) {
       return;
     }
 
-    Promise.resolve(getDeviceFingerprint()).then((uid) => {
-      localStorage.setItem("deviceUID", uid);
-      setDeviceUID(uid);
-      axiosInstance.defaults.headers.common["deviceUID"] = uid;
-    });
+    Promise.resolve(getDeviceFingerprint())
+      .then((uid) => {
+        localStorage.setItem("deviceUID", uid);
+        setDeviceUID(uid);
+        axiosInstance.defaults.headers.common["deviceUID"] = uid;
+      })
+      .catch((err) => {
+        console.error("Failed to generate device fingerprint:", err);
+      });
   }, [axiosInstance, deviceUID]);
 
   return deviceUID;
