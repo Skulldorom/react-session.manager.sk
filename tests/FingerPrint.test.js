@@ -1,9 +1,12 @@
 import getDeviceFingerprint from "../src/components/FingerPrint.js";
 
-jest.mock("clientjs", () => ({
-  ClientJS: jest.fn().mockImplementation(() => ({
-    getFingerprint: jest.fn().mockReturnValue(987654),
-  })),
+jest.mock("@fingerprintjs/fingerprintjs", () => ({
+  __esModule: true,
+  default: {
+    load: jest.fn().mockResolvedValue({
+      get: jest.fn().mockResolvedValue({ visitorId: "fp-visitorId-123" }),
+    }),
+  },
 }));
 
 beforeEach(() => {
@@ -12,32 +15,32 @@ beforeEach(() => {
 });
 
 describe("getDeviceFingerprint", () => {
-  it("returns the stored fingerprint when one already exists in localStorage", () => {
+  it("returns the stored fingerprint when one already exists in localStorage", async () => {
     localStorage.setItem("deviceFingerprint", "cached-fp");
 
-    const result = getDeviceFingerprint();
+    const result = await getDeviceFingerprint();
 
     expect(result).toBe("cached-fp");
   });
 
-  it("generates a new fingerprint via ClientJS when none is stored", () => {
-    const result = getDeviceFingerprint();
+  it("generates a new fingerprint via FingerprintJS when none is stored", async () => {
+    const result = await getDeviceFingerprint();
 
-    expect(result).toBe(987654);
+    expect(result).toBe("fp-visitorId-123");
   });
 
-  it("persists the newly generated fingerprint to localStorage", () => {
-    getDeviceFingerprint();
+  it("persists the newly generated fingerprint to localStorage", async () => {
+    await getDeviceFingerprint();
 
-    expect(localStorage.getItem("deviceFingerprint")).toBe("987654");
+    expect(localStorage.getItem("deviceFingerprint")).toBe("fp-visitorId-123");
   });
 
-  it("does not call ClientJS when a fingerprint is already cached", () => {
-    const { ClientJS } = require("clientjs");
+  it("does not call FingerprintJS when a fingerprint is already cached", async () => {
+    const FingerprintJS = require("@fingerprintjs/fingerprintjs").default;
     localStorage.setItem("deviceFingerprint", "already-cached");
 
-    getDeviceFingerprint();
+    await getDeviceFingerprint();
 
-    expect(ClientJS).not.toHaveBeenCalled();
+    expect(FingerprintJS.load).not.toHaveBeenCalled();
   });
 });

@@ -6,19 +6,28 @@ import getDeviceFingerprint from "../components/FingerPrint";
  * localStorage, and keeps the Axios instance header in sync.
  *
  * @param {import("axios").AxiosInstance} axiosInstance
- * @returns {string} deviceUID
+ * @returns {string|null} deviceUID
  */
 function useDeviceFingerprint(axiosInstance) {
-  const [deviceUID] = useState(() => {
-    const stored = localStorage.getItem("deviceUID");
-    if (stored) return stored;
-    const uid = getDeviceFingerprint();
-    localStorage.setItem("deviceUID", uid);
-    return uid;
+  const [deviceUID, setDeviceUID] = useState(() => {
+    return localStorage.getItem("deviceUID") || null;
   });
 
   useEffect(() => {
-    axiosInstance.defaults.headers.common["deviceUID"] = deviceUID;
+    if (deviceUID) {
+      axiosInstance.defaults.headers.common["deviceUID"] = deviceUID;
+      return;
+    }
+
+    Promise.resolve(getDeviceFingerprint())
+      .then((uid) => {
+        localStorage.setItem("deviceUID", uid);
+        setDeviceUID(uid);
+        axiosInstance.defaults.headers.common["deviceUID"] = uid;
+      })
+      .catch((err) => {
+        console.error("Failed to generate device fingerprint:", err);
+      });
   }, [axiosInstance, deviceUID]);
 
   return deviceUID;
