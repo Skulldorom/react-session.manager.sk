@@ -152,9 +152,9 @@ You can also use the fingerprint helper directly in your own code:
 ```js
 import { getDeviceFingerprint } from "react-session.manager.sk";
 
-async function setupDeviceUID() {
+async function sendRequest() {
   const deviceUID = await getDeviceFingerprint();
-  return deviceUID;
+  // use deviceUID in your request payload/headers
 }
 ```
 
