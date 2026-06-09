@@ -145,12 +145,17 @@ Storing a token in `localStorage` means the session persists across browser rest
 
 ### Device Fingerprinting
 
-On first load the provider uses [ClientJS](https://clientjs.org/) to generate a browser fingerprint. This value is persisted to `localStorage` as `deviceUID` and is automatically added to every outgoing request as a custom `deviceUID` header. Subsequent loads reuse the cached value.
+On first load the provider uses [FingerprintJS](https://github.com/fingerprintjs/fingerprintjs) to generate a browser fingerprint. This value is persisted to `localStorage` as `deviceUID` and is automatically added to every outgoing request as a custom `deviceUID` header. Subsequent loads reuse the cached value.
 
 You can also use the fingerprint helper directly in your own code:
 
 ```js
 import { getDeviceFingerprint } from "react-session.manager.sk";
+
+async function sendRequest() {
+  const deviceUID = await getDeviceFingerprint();
+  // use deviceUID in your request payload/headers
+}
 ```
 
 ### Version Protection
@@ -207,7 +212,7 @@ Tests live in the `tests/` directory and use Node's built-in `node:test` runner.
 | Package | Role |
 |---|---|
 | [react-toastify](https://www.npmjs.com/package/react-toastify) | In-app toast notifications |
-| [clientjs](https://www.npmjs.com/package/clientjs) | Browser fingerprinting for `deviceUID` |
+| [@fingerprintjs/fingerprintjs](https://github.com/fingerprintjs/fingerprintjs) | Browser fingerprinting for `deviceUID` |
 
 ---
 
