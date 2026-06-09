@@ -1,13 +1,12 @@
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 
-export default function getDeviceFingerprint() {
-  if (localStorage.getItem("deviceFingerprint"))
-    return localStorage.getItem("deviceFingerprint");
+export default async function getDeviceFingerprint() {
+  const cached = localStorage.getItem("deviceFingerprint");
+  if (cached) return cached;
 
-  const fpPromise = FingerprintJS.load();
-  const fingerprint = fpPromise
-    .then((fp) => fp.get())
-    .then((result) => result.visitorId);
+  const fp = await FingerprintJS.load();
+  const result = await fp.get();
+  const fingerprint = result.visitorId;
 
   localStorage.setItem("deviceFingerprint", fingerprint);
   return fingerprint;
