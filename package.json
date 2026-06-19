@@ -32,6 +32,11 @@
   "homepage": "https://github.com/Skulldorom/react-session.manager.sk#readme",
   "author": "Skulldorom",
   "license": "ISC",
+  "overrides": {
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "4.2.0"
+    }
+  },
   "devDependencies": {
     "@babel/core": "^8.0.1",
     "@babel/preset-env": "^8.0.2",
