@@ -59,11 +59,13 @@ const SessionManagerProvider = ({
 
   // Keep Authorization header in sync with the provider's header state
   useEffect(() => {
+    /* eslint-disable react-hooks/immutability -- intentional: keep axios Authorization header in sync */
     if (current) {
       AuthenticatedAxiosObject.defaults.headers.common["Authorization"] = current;
     } else {
       delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
     }
+    /* eslint-enable react-hooks/immutability */
   }, [AuthenticatedAxiosObject, current]);
 
   const restoreSession = useCallback(
