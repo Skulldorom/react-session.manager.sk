@@ -42,9 +42,28 @@ const SessionManagerProvider = ({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability -- intentional: configure axios defaults
     AuthenticatedAxiosObject.defaults.withCredentials = true;
-    AuthenticatedAxiosObject.defaults.headers.common["deviceUID"] = deviceUID;
-    AuthenticatedAxiosObject.defaults.headers.common["appVersion"] = appVersion;
+
+    if (deviceUID) {
+      AuthenticatedAxiosObject.defaults.headers.common["deviceUID"] = deviceUID;
+    } else {
+      delete AuthenticatedAxiosObject.defaults.headers.common["deviceUID"];
+    }
+
+    if (appVersion) {
+      AuthenticatedAxiosObject.defaults.headers.common["appVersion"] = appVersion;
+    } else {
+      delete AuthenticatedAxiosObject.defaults.headers.common["appVersion"];
+    }
   }, [AuthenticatedAxiosObject, deviceUID, appVersion]);
+
+  // Keep Authorization header in sync with the provider's header state
+  useEffect(() => {
+    if (current) {
+      AuthenticatedAxiosObject.defaults.headers.common["Authorization"] = current;
+    } else {
+      delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
+    }
+  }, [AuthenticatedAxiosObject, current]);
 
   const restoreSession = useCallback(
     (auth, remember) => {
