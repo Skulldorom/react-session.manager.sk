@@ -13,14 +13,26 @@ jest.mock("react-toastify", () => ({
 
 const { toast } = require("react-toastify");
 
+// jsdom v26 makes window.location non-configurable, so we can't use
+// Object.defineProperty(window, "location", ...) to replace it.
+// Instead we spy on the internal LocationImpl that the jsdom wrapper delegates to.
+// The Symbol(impl) property is configurable/writable, so jest.spyOn works on it.
+const getLocImpl = () => {
+  const implSymbol = Object.getOwnPropertySymbols(window.location).find(
+    (s) => s.toString() === "Symbol(impl)"
+  );
+  if (!implSymbol) throw new Error("jsdom Symbol(impl) not found on window.location");
+  return window.location[implSymbol];
+};
+
+let reloadSpy;
+
 beforeEach(() => {
   jest.clearAllMocks();
   sessionStorage.clear();
-  // Reset window.location.reload mock
-  Object.defineProperty(window, "location", {
-    value: { reload: jest.fn() },
-    writable: true,
-  });
+  reloadSpy = jest
+    .spyOn(getLocImpl(), "reload")
+    .mockImplementation(() => {});
 });
 
 describe("handleApiError", () => {
@@ -79,7 +91,7 @@ describe("handleApiError", () => {
 
       // The reload is triggered inside a setTimeout – advance the timer.
       jest.runAllTimers();
-      expect(window.location.reload).toHaveBeenCalledTimes(1);
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
       jest.useRealTimers();
     });
 
@@ -96,7 +108,7 @@ describe("handleApiError", () => {
       await expect(handleApiError(error)).rejects.toEqual(error);
 
       jest.runAllTimers();
-      expect(window.location.reload).not.toHaveBeenCalled();
+      expect(reloadSpy).not.toHaveBeenCalled();
       expect(toast.warning).toHaveBeenCalledWith(
         expect.stringContaining("updated"),
         expect.objectContaining({ toastId: "appReloadError" })
