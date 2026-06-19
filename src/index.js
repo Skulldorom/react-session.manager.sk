@@ -38,9 +38,9 @@ const SessionManagerProvider = ({
   // State to hold the current Authorization header value
   const [current, setCurrent] = useState("");
 
-  // Set up axios defaults once the instance is available
+  // Set up axios defaults when instance / device info changes
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/immutability -- intentional: configure axios defaults
+    /* eslint-disable react-hooks/immutability -- intentional: configure axios defaults */
     AuthenticatedAxiosObject.defaults.withCredentials = true;
 
     if (deviceUID) {
@@ -54,6 +54,7 @@ const SessionManagerProvider = ({
     } else {
       delete AuthenticatedAxiosObject.defaults.headers.common["appVersion"];
     }
+    /* eslint-enable react-hooks/immutability */
   }, [AuthenticatedAxiosObject, deviceUID, appVersion]);
 
   // Keep Authorization header in sync with the provider's header state
