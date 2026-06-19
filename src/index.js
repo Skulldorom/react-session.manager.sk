@@ -38,10 +38,35 @@ const SessionManagerProvider = ({
   // State to hold the current Authorization header value
   const [current, setCurrent] = useState("");
 
-  AuthenticatedAxiosObject.defaults.withCredentials = true;
-  AuthenticatedAxiosObject.defaults.headers.common["Authorization"] = current;
-  AuthenticatedAxiosObject.defaults.headers.common["deviceUID"] = deviceUID;
-  AuthenticatedAxiosObject.defaults.headers.common["appVersion"] = appVersion;
+  // Set up axios defaults when instance / device info changes
+  useEffect(() => {
+    /* eslint-disable react-hooks/immutability -- intentional: configure axios defaults */
+    AuthenticatedAxiosObject.defaults.withCredentials = true;
+
+    if (deviceUID) {
+      AuthenticatedAxiosObject.defaults.headers.common["deviceUID"] = deviceUID;
+    } else {
+      delete AuthenticatedAxiosObject.defaults.headers.common["deviceUID"];
+    }
+
+    if (appVersion) {
+      AuthenticatedAxiosObject.defaults.headers.common["appVersion"] = appVersion;
+    } else {
+      delete AuthenticatedAxiosObject.defaults.headers.common["appVersion"];
+    }
+    /* eslint-enable react-hooks/immutability */
+  }, [AuthenticatedAxiosObject, deviceUID, appVersion]);
+
+  // Keep Authorization header in sync with the provider's header state
+  useEffect(() => {
+    /* eslint-disable react-hooks/immutability -- intentional: keep axios Authorization header in sync */
+    if (current) {
+      AuthenticatedAxiosObject.defaults.headers.common["Authorization"] = current;
+    } else {
+      delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
+    }
+    /* eslint-enable react-hooks/immutability */
+  }, [AuthenticatedAxiosObject, current]);
 
   const restoreSession = useCallback(
     (auth, remember) => {
@@ -59,9 +84,9 @@ const SessionManagerProvider = ({
               sessionStorage.setItem("Authorization", token);
 
               if (data.refreshed) {
-                console.log("Token was refreshed with new token");
+                console.info("Token was refreshed with new token");
               } else {
-                console.log("Token is still valid, using existing token");
+                console.info("Token is still valid, using existing token");
               }
             } else {
               localStorage.removeItem("Authorization");
@@ -73,7 +98,7 @@ const SessionManagerProvider = ({
             }
           })
           .catch((err) => {
-            console.log(err);
+            console.error("Session restoration failed:", err);
             localStorage.removeItem("Authorization");
             sessionStorage.removeItem("Authorization");
             toast.warn(
@@ -91,8 +116,11 @@ const SessionManagerProvider = ({
     const localAuth = localStorage.getItem("Authorization");
     const sessAuth = sessionStorage.getItem("Authorization");
 
-    if (localAuth) restoreSession(localAuth, true);
-    else if (sessAuth) restoreSession(sessAuth, false);
+    if (localAuth) {
+      Promise.resolve().then(() => restoreSession(localAuth, true));
+    } else if (sessAuth) {
+      Promise.resolve().then(() => restoreSession(sessAuth, false));
+    }
   }, [restoreSession]);
 
   // Watch for Authorization token updates from other tabs via localStorage
@@ -124,11 +152,11 @@ const SessionManagerProvider = ({
             setIsAdmin(data.is_admin);
             setUserInfo(data.Info);
           } else {
-            console.log("Invalid user data response");
+            console.warn("Invalid user data response");
           }
         })
         .catch((err) => {
-          console.log(err);
+          console.error("User data fetch failed:", err);
         })
         .finally(() => {
           setLoadingUser(false);
@@ -186,11 +214,11 @@ const SessionManagerProvider = ({
         if (res && res.data) {
           setUserInfo(res.data.Info);
         } else {
-          console.log("Invalid refresh data response");
+          console.warn("Invalid refresh data response");
         }
       })
       .catch((err) => {
-        console.log("Error refreshing user data:", err);
+        console.error("Error refreshing user data:", err);
       })
       .finally(() => {
         setRefreshFlag(false);
