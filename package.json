@@ -33,7 +33,9 @@
   "author": "Skulldorom",
   "license": "ISC",
   "overrides": {
-    "js-yaml": "4.2.0"
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "4.2.0"
+    }
   },
   "devDependencies": {
     "@babel/core": "^8.0.1",
