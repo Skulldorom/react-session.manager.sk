@@ -15,6 +15,7 @@ function useDeviceFingerprint(axiosInstance) {
 
   useEffect(() => {
     if (deviceUID) {
+      // eslint-disable-next-line react-hooks/immutability -- intentional: sync deviceUID header to axios instance
       axiosInstance.defaults.headers.common["deviceUID"] = deviceUID;
       return;
     }

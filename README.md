@@ -203,7 +203,7 @@ npm test
 npm run build
 ```
 
-Tests live in the `tests/` directory and use Node's built-in `node:test` runner. The CI workflow runs tests in a dedicated **test** job before **build-and-publish**, so a failing test blocks the release.
+Tests live in the `tests/` directory and use Jest. The CI workflow runs tests in a dedicated **test** job before **build-and-publish**, so a failing test blocks the release.
 
 ---
 
