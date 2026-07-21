@@ -1,6 +1,8 @@
 # react-session.manager.sk
 
-[![Release](https://img.shields.io/github/v/release/Skulldorom/react-session.manager.sk?label=release&logo=github)](https://github.com/Skulldorom/react-session.manager.sk/releases/latest)
+[![Tests](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/tests.yml/badge.svg)](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/tests.yml)
+[![Release](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/npm-publish.yml)
+[![GitHub release](https://img.shields.io/github/v/release/Skulldorom/react-session.manager.sk)](https://github.com/Skulldorom/react-session.manager.sk/releases)
 
 A React context provider for managing token-based user sessions in applications backed by a Flask API. It handles JWT token storage and refresh, device fingerprinting, app version enforcement, cross-tab session synchronisation, and user-facing toast notifications — all from a single wrapper component.
 
