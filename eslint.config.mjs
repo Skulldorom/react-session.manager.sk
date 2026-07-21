@@ -1,5 +1,4 @@
 import js from "@eslint/js";
-import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import prettierConfig from "eslint-config-prettier";
 
@@ -8,7 +7,6 @@ export default [
   {
     files: ["src/**/*.{js,jsx}"],
     plugins: {
-      react: reactPlugin,
       "react-hooks": reactHooksPlugin,
     },
     languageOptions: {
@@ -36,20 +34,10 @@ export default [
         Math: "readonly",
       },
     },
-    settings: {
-      react: {
-        version: "detect",
-      },
-    },
     rules: {
-      ...reactPlugin.configs.recommended.rules,
-      ...reactPlugin.configs["jsx-runtime"].rules,
       ...reactHooksPlugin.configs.recommended.rules,
       "no-console": "off",
-      // prop-types validation is not enforced in this project
-      "react/prop-types": "off",
-      // New react-hooks v7 rules – downgraded to warnings while the
-      // codebase is being incrementally updated
+      // react-hooks v7 rules — warnings while codebase is incrementally updated
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/immutability": "warn",
     },
