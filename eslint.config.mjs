@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import prettierConfig from "eslint-config-prettier";
 
@@ -7,6 +8,7 @@ export default [
   {
     files: ["src/**/*.{js,jsx}"],
     plugins: {
+      react: reactPlugin,
       "react-hooks": reactHooksPlugin,
     },
     languageOptions: {
@@ -36,6 +38,8 @@ export default [
     },
     rules: {
       ...reactHooksPlugin.configs.recommended.rules,
+      "react/jsx-uses-vars": "error",
+      "react/jsx-uses-react": "error",
       "no-console": "off",
       // react-hooks v7 rules — warnings while codebase is incrementally updated
       "react-hooks/set-state-in-effect": "warn",
