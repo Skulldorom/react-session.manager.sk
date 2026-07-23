@@ -68,6 +68,9 @@ jobs:
       - name: Run package smoke tests
         run: npm run test:smoke
 
+      - name: Run consumer smoke tests
+        run: npm run test:consumer-smoke
+
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
