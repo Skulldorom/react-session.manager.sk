@@ -6,6 +6,7 @@ import useDeviceFingerprint from "./hooks/useDeviceFingerprint";
 import { Logout } from "./components/Icons";
 // Notifications
 import { ToastContainer, toast } from "react-toastify";
+// Styling for react-toastify
 import "react-toastify/dist/ReactToastify.css";
 import "./styling/toast.css";
 
@@ -50,7 +51,8 @@ const SessionManagerProvider = ({
     }
 
     if (appVersion) {
-      AuthenticatedAxiosObject.defaults.headers.common["appVersion"] = appVersion;
+      AuthenticatedAxiosObject.defaults.headers.common["appVersion"] =
+        appVersion;
     } else {
       delete AuthenticatedAxiosObject.defaults.headers.common["appVersion"];
     }
@@ -61,7 +63,8 @@ const SessionManagerProvider = ({
   useEffect(() => {
     /* eslint-disable react-hooks/immutability -- intentional: keep axios Authorization header in sync */
     if (current) {
-      AuthenticatedAxiosObject.defaults.headers.common["Authorization"] = current;
+      AuthenticatedAxiosObject.defaults.headers.common["Authorization"] =
+        current;
     } else {
       delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
     }
