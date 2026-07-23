@@ -11,6 +11,17 @@ async function run() {
     readFileSync(path.join(projectRoot, "package.json"), "utf8")
   );
   const entryPoint = path.resolve(projectRoot, manifest.main);
+  const bundle = readFileSync(entryPoint, "utf8");
+
+  assert.ok(
+    !bundle.includes("jsxDEV"),
+    "production bundle must not contain React's development-only jsxDEV runtime"
+  );
+  assert.ok(
+    !bundle.includes("react/jsx-dev-runtime"),
+    "production bundle must not import react/jsx-dev-runtime"
+  );
+
   const packageModule = await import(pathToFileURL(entryPoint).href);
 
   assert.equal(typeof packageModule.default, "function");
