@@ -80,11 +80,13 @@ async function runBrowserSmoke() {
     previewOutput += chunk.toString();
   });
 
+  let browser;
+
   try {
     await waitForUrl("http://127.0.0.1:4173/");
 
     const { chromium } = require(path.join(appRoot, "node_modules", "playwright"));
-    const browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     const pageErrors = [];
     const consoleErrors = [];
@@ -105,12 +107,14 @@ async function runBrowserSmoke() {
     assert.match(renderedText, /Consumer smoke ready/);
     assert.deepEqual(pageErrors, [], "consumer app must not throw browser page errors");
     assert.deepEqual(consoleErrors, [], "consumer app must not log browser console errors");
-
-    await browser.close();
   } catch (error) {
     error.message = `${error.message}\n\nVite preview output:\n${previewOutput}`;
     throw error;
   } finally {
+    if (browser) {
+      await browser.close();
+    }
+
     if (preview.pid) {
       if (process.platform === "win32") {
         preview.kill("SIGTERM");
@@ -157,11 +161,11 @@ async function main() {
           build: "vite build",
         },
         dependencies: {
-          "@vitejs/plugin-react": "latest",
-          vite: "latest",
-          react: "latest",
-          "react-dom": "latest",
-          playwright: "latest",
+          "@vitejs/plugin-react": "5.2.0",
+          vite: "7.3.6",
+          react: "19.2.7",
+          "react-dom": "19.2.7",
+          playwright: "1.57.0",
           "react-session.manager.sk": `file:${tarballPath}`,
         },
         devDependencies: {},
