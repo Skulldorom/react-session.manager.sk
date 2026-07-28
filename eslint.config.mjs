@@ -1,16 +1,25 @@
 import js from "@eslint/js";
-import reactPlugin from "eslint-plugin-react";
-import reactHooksPlugin from "eslint-plugin-react-hooks";
+import eslintReact from "@eslint-react/eslint-plugin";
 import prettierConfig from "eslint-config-prettier";
+
+const browserGlobals = {
+  caches: "readonly",
+  clearInterval: "readonly",
+  clearTimeout: "readonly",
+  console: "readonly",
+  document: "readonly",
+  localStorage: "readonly",
+  sessionStorage: "readonly",
+  setInterval: "readonly",
+  setTimeout: "readonly",
+  window: "readonly",
+};
 
 export default [
   js.configs.recommended,
   {
+    ...eslintReact.configs.recommended,
     files: ["src/**/*.{js,jsx}"],
-    plugins: {
-      react: reactPlugin,
-      "react-hooks": reactHooksPlugin,
-    },
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
@@ -19,31 +28,11 @@ export default [
           jsx: true,
         },
       },
-      globals: {
-        window: "readonly",
-        document: "readonly",
-        localStorage: "readonly",
-        sessionStorage: "readonly",
-        console: "readonly",
-        setTimeout: "readonly",
-        clearTimeout: "readonly",
-        setInterval: "readonly",
-        clearInterval: "readonly",
-        Promise: "readonly",
-        caches: "readonly",
-        parseInt: "readonly",
-        Boolean: "readonly",
-        Math: "readonly",
-      },
+      globals: browserGlobals,
     },
     rules: {
-      ...reactHooksPlugin.configs.recommended.rules,
-      "react/jsx-uses-vars": "error",
-      "react/jsx-uses-react": "error",
+      ...eslintReact.configs.recommended.rules,
       "no-console": "off",
-      // react-hooks v7 rules — warnings while codebase is incrementally updated
-      "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/immutability": "warn",
     },
   },
   prettierConfig,

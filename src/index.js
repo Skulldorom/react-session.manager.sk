@@ -10,7 +10,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./styling/toast.css";
 
-const SessionManager = createContext({
+const SessionManagerContext = createContext({
   isLoggedIn: null,
   header: null,
   isAdmin: null,
@@ -41,7 +41,6 @@ const SessionManagerProvider = ({
 
   // Set up axios defaults when instance / device info changes
   useEffect(() => {
-    /* eslint-disable react-hooks/immutability -- intentional: configure axios defaults */
     AuthenticatedAxiosObject.defaults.withCredentials = true;
 
     if (deviceUID) {
@@ -56,19 +55,16 @@ const SessionManagerProvider = ({
     } else {
       delete AuthenticatedAxiosObject.defaults.headers.common["appVersion"];
     }
-    /* eslint-enable react-hooks/immutability */
   }, [AuthenticatedAxiosObject, deviceUID, appVersion]);
 
   // Keep Authorization header in sync with the provider's header state
   useEffect(() => {
-    /* eslint-disable react-hooks/immutability -- intentional: keep axios Authorization header in sync */
     if (current) {
       AuthenticatedAxiosObject.defaults.headers.common["Authorization"] =
         current;
     } else {
       delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
     }
-    /* eslint-enable react-hooks/immutability */
   }, [AuthenticatedAxiosObject, current]);
 
   const restoreSession = useCallback(
@@ -140,13 +136,13 @@ const SessionManagerProvider = ({
 
   const setHeader = (header) => setCurrent(header);
 
-  const [currentLoggin, setCurrentLoggedIn] = useState(false);
+  const [currentLoggedIn, setCurrentLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userInfo, setUserInfo] = useState({});
   const [loadingUser, setLoadingUser] = useState(true);
 
   useEffect(() => {
-    setTimeout(() => {
+    const userLoaderTimer = setTimeout(() => {
       userLoader()
         .then((res) => {
           if (res && res.data) {
@@ -165,7 +161,9 @@ const SessionManagerProvider = ({
           setLoadingUser(false);
         });
     }, 100);
-  }, [current, currentLoggin, userLoader]);
+
+    return () => clearTimeout(userLoaderTimer);
+  }, [current, currentLoggedIn, userLoader]);
 
   const setLoggedin = (status) => setCurrentLoggedIn(status);
 
@@ -173,7 +171,7 @@ const SessionManagerProvider = ({
   useEffect(() => {
     const intervalMs = (refreshTimer || 60) * 60 * 1000;
 
-    if (!currentLoggin) return;
+    if (!currentLoggedIn) return;
 
     const remember = Boolean(localStorage.getItem("Authorization"));
     const interval = setInterval(() => {
@@ -181,7 +179,7 @@ const SessionManagerProvider = ({
     }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [current, restoreSession, currentLoggin, refreshTimer]);
+  }, [current, restoreSession, currentLoggedIn, refreshTimer]);
 
   // Eject/re-register the Axios response interceptor when the instance changes
   useEffect(() => {
@@ -201,11 +199,11 @@ const SessionManagerProvider = ({
   }, [AuthenticatedAxiosObject]);
 
   // Periodic user-data refresh flag
-  const [refreshData, setRefreshFlag] = useState(false);
+  const [refreshData, setRefreshData] = useState(false);
 
   useEffect(() => {
     const delayMs = (dataRefresh || 60) * 60 * 1000;
-    const timer = setTimeout(() => setRefreshFlag(true), delayMs);
+    const timer = setTimeout(() => setRefreshData(true), delayMs);
     return () => clearTimeout(timer);
   }, [dataRefresh]);
 
@@ -224,17 +222,15 @@ const SessionManagerProvider = ({
         console.error("Error refreshing user data:", err);
       })
       .finally(() => {
-        setRefreshFlag(false);
+        setRefreshData(false);
       });
   }, [refreshData, userLoader]);
-
-  const setRefreshData = (status) => setRefreshFlag(status);
 
   const hasRole = (roles) =>
     roles.some((r) => userInfo?.roles?.indexOf(r) >= 0);
 
   const contextValue = {
-    isLoggedIn: currentLoggin,
+    isLoggedIn: currentLoggedIn,
     header: current,
     isAdmin,
     userInfo,
@@ -248,7 +244,7 @@ const SessionManagerProvider = ({
   };
 
   return (
-    <SessionManager.Provider value={contextValue}>
+    <SessionManagerContext value={contextValue}>
       <ToastContainer
         position="top-left"
         autoClose={5000}
@@ -261,9 +257,13 @@ const SessionManagerProvider = ({
       />
       <VersionProtection appVersion={appVersion} />
       {children}
-    </SessionManager.Provider>
+    </SessionManagerContext>
   );
 };
 
-export { SessionManager, SessionManagerProvider, getDeviceFingerprint };
+export {
+  SessionManagerContext as SessionManager,
+  SessionManagerProvider,
+  getDeviceFingerprint,
+};
 export default SessionManagerProvider;
