@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
 const { mkdtempSync, mkdirSync, readFileSync, writeFileSync, readdirSync, rmSync } = require("node:fs");
+const net = require("node:net");
 const os = require("node:os");
 const path = require("node:path");
 
@@ -61,10 +62,32 @@ function readBuiltJavaScriptFiles(distRoot) {
     }));
 }
 
+function getAvailablePort() {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
+}
+
 async function runBrowserSmoke() {
+  const previewPort = await getAvailablePort();
+  const previewUrl = `http://127.0.0.1:${previewPort}/`;
   const preview = spawn(
     process.platform === "win32" ? "npx.cmd" : "npx",
-    ["vite", "preview", "--host", "127.0.0.1", "--port", "4173", "--strictPort"],
+    [
+      "vite",
+      "preview",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      String(previewPort),
+      "--strictPort",
+    ],
     {
       cwd: appRoot,
       detached: process.platform !== "win32",
@@ -83,7 +106,7 @@ async function runBrowserSmoke() {
   let browser;
 
   try {
-    await waitForUrl("http://127.0.0.1:4173/");
+    await waitForUrl(previewUrl);
 
     const { chromium } = require(path.join(appRoot, "node_modules", "playwright"));
     browser = await chromium.launch({ headless: true });
@@ -98,7 +121,7 @@ async function runBrowserSmoke() {
       }
     });
 
-    await page.goto("http://127.0.0.1:4173/", { waitUntil: "networkidle" });
+    await page.goto(previewUrl, { waitUntil: "networkidle" });
     await page.waitForSelector("[data-testid='consumer-smoke-ready']", {
       timeout: 10000,
     });
