@@ -31,6 +31,7 @@ const SessionManagerProvider = ({
   userLoader,
   refreshToken,
   appVersion,
+  onSessionChange,
   toastOptions,
   children,
 }) => {
@@ -140,6 +141,16 @@ const SessionManagerProvider = ({
   const [isAdmin, setIsAdmin] = useState(false);
   const [userInfo, setUserInfo] = useState({});
   const [loadingUser, setLoadingUser] = useState(true);
+
+  useEffect(() => {
+    onSessionChange?.({
+      isLoggedIn: currentLoggedIn,
+      isAdmin,
+      userInfo,
+      loadingUser,
+      deviceUID,
+    });
+  }, [onSessionChange, currentLoggedIn, isAdmin, userInfo, loadingUser, deviceUID]);
 
   useEffect(() => {
     const userLoaderTimer = setTimeout(() => {

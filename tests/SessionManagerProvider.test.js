@@ -49,6 +49,7 @@ function renderProvider({
   refreshToken = jest.fn().mockResolvedValue(null),
   userLoader = jest.fn().mockResolvedValue({ data: { logged_in: false, is_admin: false, Info: {} } }),
   appVersion = "1.0.0",
+  onSessionChange,
   refreshTimer,
   dataRefresh,
   toastOptions,
@@ -62,6 +63,7 @@ function renderProvider({
       refreshToken={refreshToken}
       userLoader={userLoader}
       appVersion={appVersion}
+      onSessionChange={onSessionChange}
       refreshTimer={refreshTimer}
       dataRefresh={dataRefresh}
       toastOptions={toastOptions}
@@ -212,6 +214,55 @@ describe("SessionManagerProvider", () => {
       const { getCaptured } = renderProvider({ userLoader });
 
       await waitFor(() => expect(getCaptured().loadingUser).toBe(false));
+    });
+  });
+
+  describe("onSessionChange", () => {
+    it("calls onSessionChange with the resolved user session snapshot", async () => {
+      const onSessionChange = jest.fn();
+      const userLoader = jest.fn().mockResolvedValue({
+        data: {
+          logged_in: true,
+          is_admin: true,
+          Info: { email: "alice@example.com", roles: ["admin"] },
+        },
+      });
+
+      renderProvider({ onSessionChange, userLoader });
+
+      await waitFor(() =>
+        expect(onSessionChange).toHaveBeenCalledWith({
+          isLoggedIn: true,
+          isAdmin: true,
+          userInfo: { email: "alice@example.com", roles: ["admin"] },
+          loadingUser: false,
+          deviceUID: "test-device-uid",
+        })
+      );
+    });
+
+    it("calls onSessionChange when setLoggedin updates login state", async () => {
+      const onSessionChange = jest.fn();
+      const { getCaptured } = renderProvider({ onSessionChange });
+
+      await waitFor(() => expect(typeof getCaptured().setLoggedin).toBe("function"));
+
+      act(() => {
+        getCaptured().setLoggedin(true);
+      });
+
+      await waitFor(() =>
+        expect(onSessionChange).toHaveBeenCalledWith(
+          expect.objectContaining({ isLoggedIn: true })
+        )
+      );
+    });
+
+    it("does not crash when onSessionChange is omitted", async () => {
+      const { getCaptured } = renderProvider();
+
+      await waitFor(() => expect(getCaptured().loadingUser).toBe(false));
+      expect(getCaptured().isLoggedIn).toBe(false);
     });
   });
 

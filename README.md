@@ -67,6 +67,13 @@ function Root() {
       dataRefresh={30}
       appVersion="1.0.0"
       toastOptions={{ position: "top-right" }}
+      onSessionChange={({ isLoggedIn, userInfo }) => {
+        if (isLoggedIn && userInfo?.email) {
+          updateTelemetryUser(userInfo);
+        } else {
+          clearTelemetryUser();
+        }
+      }}
     >
       <App />
     </SessionManagerProvider>
@@ -109,8 +116,23 @@ function Profile() {
 | `refreshTimer` | `number` | | Minutes between automatic token refresh attempts. Defaults to `60`. |
 | `dataRefresh` | `number` | | Minutes between automatic user-data refresh calls. Defaults to `60`. |
 | `appVersion` | `string` | | Semver string of the current client build (e.g. `"1.2.3"`). Used for version comparison against server requirements. |
+| `onSessionChange` | `(snapshot: object) => void` | | Optional callback invoked whenever `isLoggedIn`, `isAdmin`, `userInfo`, `loadingUser`, or `deviceUID` changes. Use this for app-specific side effects such as telemetry user context without coupling this package to an analytics provider. |
 | `toastOptions` | `object` | | Any valid [react-toastify `ToastContainer` props](https://fkhadra.github.io/react-toastify/api/toast-container) to customise notification behaviour. |
 | `children` | `ReactNode` | ✅ | Your application tree. |
+
+The `onSessionChange` callback receives a snapshot shaped like:
+
+```js
+{
+  isLoggedIn,
+  isAdmin,
+  userInfo,
+  loadingUser,
+  deviceUID,
+}
+```
+
+If the callback runs expensive work or is declared inline in a component that re-renders often, wrap it in `useCallback` so its function identity stays stable.
 
 ---
 
