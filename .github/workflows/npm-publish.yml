@@ -1,5 +1,6 @@
-# Releases triggered by a push only run after the separate Tests workflow succeeds.
-# Manual releases invoke that same reusable test workflow before publishing.
+# Releases triggered by push only run after the Tests workflow succeeds.
+# Manual releases invoke the reusable Tests workflow first.
+# The publish job rebuilds dist for npm packaging but does not re-run smoke tests.
 
 name: Release
 
@@ -64,12 +65,6 @@ jobs:
 
       - name: Build package
         run: npm run build
-
-      - name: Run package smoke tests
-        run: npm run test:smoke
-
-      - name: Run consumer smoke tests
-        run: npm run test:consumer-smoke
 
       - name: Configure Git
         run: |
