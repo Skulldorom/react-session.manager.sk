@@ -4,7 +4,7 @@
 [![Release](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/npm-publish.yml)
 [![GitHub release](https://img.shields.io/github/v/release/Skulldorom/react-session.manager.sk)](https://github.com/Skulldorom/react-session.manager.sk/releases)
 
-A React context provider for managing token-based user sessions in applications backed by a Flask API. It handles JWT token storage and refresh, device fingerprinting, app version enforcement, cross-tab session synchronisation, and user-facing toast notifications — all from a single wrapper component.
+A React context provider for managing cookie-based user sessions in applications backed by a Flask API. It configures credentialed Axios requests, CSRF headers, device fingerprinting, app version enforcement, and user-facing toast notifications — all from a single wrapper component.
 
 ---
 
@@ -29,9 +29,10 @@ A React context provider for managing token-based user sessions in applications 
 
 ## Features
 
-- **Automatic token refresh** on a configurable interval
-- **Persistent sessions** via `localStorage` (remember me) or `sessionStorage`
-- **Cross-tab synchronisation** — a login in one tab is picked up by all open tabs
+- **Credentialed cookie requests** for APIs that issue HttpOnly auth cookies
+- **CSRF header support** using Axios XSRF defaults (`csrf_access_token` → `X-CSRF-TOKEN`)
+- **Optional session ping/refresh** on a configurable interval
+- **Legacy bearer cleanup** — removes old `Authorization` values from `localStorage` and `sessionStorage`
 - **Device fingerprinting** — generates a stable `deviceUID` and attaches it to every request header
 - **App version enforcement** — detects when the server requires a newer client version and prompts the user to update
 - **Axios interceptor** — centrally handles `401`, `403`, `426`, `455`, `500`, `503`, and network/timeout errors
@@ -110,9 +111,9 @@ function Profile() {
 
 | Prop | Type | Required | Description |
 |---|---|---|---|
-| `AuthenticatedAxiosObject` | `AxiosInstance` | ✅ | An axios instance. The provider attaches `Authorization`, `deviceUID`, and `appVersion` headers to it automatically. |
+| `AuthenticatedAxiosObject` | `AxiosInstance` | ✅ | An axios instance. The provider enables credentialed cookie requests, configures Axios XSRF defaults, and attaches `deviceUID` and `appVersion` headers. It does not set `Authorization` for browser auth. |
 | `userLoader` | `() => Promise` | ✅ | Async function that fetches the current user. Must resolve to `{ data: { logged_in, is_admin, Info } }`. |
-| `refreshToken` | `() => Promise` | ✅ | Async function that refreshes the JWT. Must resolve to `{ access_token, refreshed? }`. |
+| `refreshToken` | `() => Promise` | | Optional async function used as a server-side cookie session ping/refresh while logged in. It should not return or persist browser bearer tokens. |
 | `refreshTimer` | `number` | | Minutes between automatic token refresh attempts. Defaults to `60`. |
 | `dataRefresh` | `number` | | Minutes between automatic user-data refresh calls. Defaults to `60`. |
 | `appVersion` | `string` | | Semver string of the current client build (e.g. `"1.2.3"`). Used for version comparison against server requirements. |
@@ -151,10 +152,10 @@ const session = useContext(SessionManager);
 | `loadingUser` | `boolean` | `true` while the initial `userLoader` call is in flight. |
 | `userInfo` | `object` | The `Info` object returned by `userLoader`. Shape is determined by your API. |
 | `isAdmin` | `boolean` | Mirrors `is_admin` from the `userLoader` response. |
-| `header` | `string` | The current `Authorization` header value (e.g. `"Bearer <token>"`). |
+| `header` | `string` | Deprecated compatibility value. Browser auth is cookie-based; this package does not apply it to Axios `Authorization` headers. |
 | `deviceUID` | `string` | The stable device fingerprint stored in `localStorage`. |
 | `refreshData` | `boolean` | Flag that is set to `true` when a periodic data refresh is due. |
-| `setHeader` | `(token: string) => void` | Manually set the `Authorization` header (e.g. after a successful login). |
+| `setHeader` | `(token: string) => void` | Deprecated compatibility setter. Updates context only and does not set Axios `Authorization`. |
 | `setLoggedin` | `(status: boolean) => void` | Manually update the logged-in state (e.g. after logout). |
 | `setRefreshData` | `(status: boolean) => void` | Manually trigger or clear a data refresh cycle. |
 | `hasRole` | `(roles: string[]) => boolean` | Returns `true` if `userInfo.roles` contains any of the provided role strings. |
@@ -163,11 +164,22 @@ const session = useContext(SessionManager);
 
 ## How It Works
 
-### Token Management
+### Cookie Session Management
 
-On mount the provider checks `localStorage` and `sessionStorage` for a stored `Authorization` token. If found it immediately calls `refreshToken` to validate/rotate it, then re-stores the result. A `setInterval` continues to call `refreshToken` every `refreshTimer` minutes while the user is logged in.
+The provider assumes the backend issues browser JWT/session state through HttpOnly cookies. It sets these Axios defaults on the supplied instance:
 
-Storing a token in `localStorage` means the session persists across browser restarts ("remember me"). `sessionStorage` tokens expire when the tab is closed.
+```js
+axios.defaults.withCredentials = true;
+axios.defaults.withXSRFToken = true;
+axios.defaults.xsrfCookieName = "csrf_access_token";
+axios.defaults.xsrfHeaderName = "X-CSRF-TOKEN";
+```
+
+The backend must issue the HttpOnly auth cookie and expose the CSRF value through the deployment's chosen CSRF mechanism. For readable-cookie CSRF, the browser must be able to read `csrf_access_token` from the frontend origin; cross-site deployments may need a same-site API hostname or a response/header CSRF endpoint instead.
+
+The provider does not read, write, or refresh bearer access tokens in `localStorage` or `sessionStorage`. On mount, and when old tabs write `Authorization` storage values, it removes those legacy values as migration cleanup.
+
+If `refreshToken` is provided, it is treated as a session ping/refresh endpoint for server-side cookie renewal. It should not return bearer access tokens to JavaScript.
 
 ### Device Fingerprinting
 

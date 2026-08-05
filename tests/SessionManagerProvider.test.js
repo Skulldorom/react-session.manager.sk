@@ -310,6 +310,33 @@ describe("SessionManagerProvider", () => {
       expect(mockAxios.defaults.withCredentials).toBe(true);
     });
 
+    it("configures Axios XSRF defaults for cookie auth", () => {
+      const { mockAxios } = renderProvider();
+
+      expect(mockAxios.defaults.withXSRFToken).toBe(true);
+      expect(mockAxios.defaults.xsrfCookieName).toBe("csrf_access_token");
+      expect(mockAxios.defaults.xsrfHeaderName).toBe("X-CSRF-TOKEN");
+    });
+
+    it("does not set an Authorization header when setHeader is called", async () => {
+      const { getCaptured, mockAxios } = renderProvider();
+
+      await waitFor(() =>
+        expect(typeof getCaptured().setHeader).toBe("function")
+      );
+
+      act(() => {
+        getCaptured().setHeader("Bearer should-not-be-used");
+      });
+
+      await waitFor(() =>
+        expect(getCaptured().header).toBe("Bearer should-not-be-used")
+      );
+      expect(mockAxios.defaults.headers.common).not.toHaveProperty(
+        "Authorization"
+      );
+    });
+
     it("sets deviceUID and appVersion headers when values are present", () => {
       const { mockAxios } = renderProvider({ appVersion: "2.1.0" });
 
@@ -359,13 +386,14 @@ describe("SessionManagerProvider", () => {
       });
       await waitFor(() => expect(getCaptured().isLoggedIn).toBe(true));
 
-      mockAxios.defaults.headers.common["Authorization"] = "Bearer expired";
       const [, onRejected] = mockAxios.interceptors.response.use.mock.calls[0];
       const error = { response: { status: 401 } };
 
       await expect(onRejected(error)).rejects.toBe(error);
       await waitFor(() => expect(getCaptured().isLoggedIn).toBe(false));
-      expect(mockAxios.defaults.headers.common["Authorization"]).toBe("");
+      expect(mockAxios.defaults.headers.common).not.toHaveProperty(
+        "Authorization"
+      );
     });
 
     it("ejects the response interceptor on unmount", () => {
@@ -378,7 +406,7 @@ describe("SessionManagerProvider", () => {
   });
 
   describe("session restoration from storage", () => {
-    it("calls refreshToken when a token is in localStorage", async () => {
+    it("does not call refreshToken when a token is in localStorage", async () => {
       localStorage.setItem("Authorization", "Bearer stored-local-token");
 
       const refreshToken = jest
@@ -387,10 +415,11 @@ describe("SessionManagerProvider", () => {
 
       renderProvider({ refreshToken });
 
-      await waitFor(() => expect(refreshToken).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(refreshToken).not.toHaveBeenCalled());
+      expect(localStorage.getItem("Authorization")).toBeNull();
     });
 
-    it("calls refreshToken when a token is in sessionStorage", async () => {
+    it("does not call refreshToken when a token is in sessionStorage", async () => {
       sessionStorage.setItem("Authorization", "Bearer stored-session-token");
 
       const refreshToken = jest
@@ -399,10 +428,11 @@ describe("SessionManagerProvider", () => {
 
       renderProvider({ refreshToken });
 
-      await waitFor(() => expect(refreshToken).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(refreshToken).not.toHaveBeenCalled());
+      expect(sessionStorage.getItem("Authorization")).toBeNull();
     });
 
-    it("prefers localStorage over sessionStorage", async () => {
+    it("clears legacy Authorization values from both browser storage areas", async () => {
       localStorage.setItem("Authorization", "Bearer local-token");
       sessionStorage.setItem("Authorization", "Bearer session-token");
 
@@ -412,55 +442,15 @@ describe("SessionManagerProvider", () => {
 
       renderProvider({ refreshToken });
 
-      await waitFor(() => expect(refreshToken).toHaveBeenCalledTimes(1));
-      // restoreSession is called once (for localAuth), not twice
-      expect(refreshToken).toHaveBeenCalledTimes(1);
-    });
-
-    it("shows a warning toast when refreshToken returns no token", async () => {
-      localStorage.setItem("Authorization", "Bearer old-token");
-      const { toast } = require("react-toastify");
-      const refreshToken = jest.fn().mockResolvedValue(null);
-
-      renderProvider({ refreshToken });
-
-      await waitFor(() =>
-        expect(toast.warn).toHaveBeenCalledWith(
-          expect.stringContaining("session could not be restored"),
-          expect.objectContaining({ toastId: "TOKEN_REFRESH_FAILED" })
-        )
-      );
-    });
-
-    it("shows a warning toast when refreshToken rejects", async () => {
-      localStorage.setItem("Authorization", "Bearer old-token");
-      const { toast } = require("react-toastify");
-      const error = new Error("refresh failed");
-      const errorSpy = jest
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-      const refreshToken = jest.fn().mockRejectedValue(error);
-
-      renderProvider({ refreshToken });
-
-      await waitFor(() =>
-        expect(toast.warn).toHaveBeenCalledWith(
-          expect.stringContaining("session could not be restored"),
-          expect.objectContaining({ toastId: "TOKEN_REFRESH_FAILED" })
-        )
-      );
-      expect(errorSpy).toHaveBeenCalledWith(
-        "Session restoration failed:",
-        error
-      );
+      await waitFor(() => expect(refreshToken).not.toHaveBeenCalled());
+      expect(localStorage.getItem("Authorization")).toBeNull();
+      expect(sessionStorage.getItem("Authorization")).toBeNull();
     });
   });
 
-  describe("periodic token refresh", () => {
-    it("refreshes the stored session while logged in", async () => {
-      sessionStorage.setItem("Authorization", "Bearer interval-token");
+  describe("periodic session refresh", () => {
+    it("calls refreshToken as an optional session ping while logged in", async () => {
       const refreshToken = jest.fn().mockResolvedValue({
-        access_token: "interval-token-new",
         refreshed: true,
       });
       const { getCaptured } = renderProvider({
@@ -481,6 +471,7 @@ describe("SessionManagerProvider", () => {
       });
 
       await waitFor(() => expect(refreshToken).toHaveBeenCalled());
+      expect(sessionStorage.getItem("Authorization")).toBeNull();
     });
   });
 
@@ -570,9 +561,8 @@ describe("SessionManagerProvider", () => {
   });
 
   describe("cross-tab storage event", () => {
-    it("calls refreshToken when a storage event updates Authorization", async () => {
+    it("ignores legacy Authorization storage events", async () => {
       const refreshToken = jest.fn().mockResolvedValue({
-        access_token: "cross-tab-token",
         refreshed: true,
       });
 
@@ -587,7 +577,10 @@ describe("SessionManagerProvider", () => {
         );
       });
 
-      await waitFor(() => expect(refreshToken).toHaveBeenCalledTimes(1));
+      await act(async () => jest.advanceTimersByTime(300));
+      expect(refreshToken).not.toHaveBeenCalled();
+      expect(localStorage.getItem("Authorization")).toBeNull();
+      expect(sessionStorage.getItem("Authorization")).toBeNull();
     });
 
     it("ignores storage events for other keys", async () => {
