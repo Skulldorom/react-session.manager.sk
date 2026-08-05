@@ -3,9 +3,9 @@ import handleApiError from "./components/handleApiError";
 import VersionProtection from "./components/VersionProtection";
 import getDeviceFingerprint from "./components/FingerPrint";
 import useDeviceFingerprint from "./hooks/useDeviceFingerprint";
-import { Logout } from "./components/Icons";
+
 // Notifications
-import { ToastContainer, toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 // Styling for react-toastify
 import "react-toastify/dist/ReactToastify.css";
 import "./styling/toast.css";
@@ -37,12 +37,16 @@ const SessionManagerProvider = ({
 }) => {
   const deviceUID = useDeviceFingerprint(AuthenticatedAxiosObject);
 
-  // State to hold the current Authorization header value
+  // Deprecated compatibility state. Browser auth is cookie-based; this value is
+  // exposed only so older consumers that still destructure `header` do not crash.
   const [current, setCurrent] = useState("");
 
   // Set up axios defaults when instance / device info changes
   useEffect(() => {
     AuthenticatedAxiosObject.defaults.withCredentials = true;
+    AuthenticatedAxiosObject.defaults.withXSRFToken = true;
+    AuthenticatedAxiosObject.defaults.xsrfCookieName = "csrf_access_token";
+    AuthenticatedAxiosObject.defaults.xsrfHeaderName = "X-CSRF-TOKEN";
 
     if (deviceUID) {
       AuthenticatedAxiosObject.defaults.headers.common["deviceUID"] = deviceUID;
@@ -58,82 +62,34 @@ const SessionManagerProvider = ({
     }
   }, [AuthenticatedAxiosObject, deviceUID, appVersion]);
 
-  // Keep Authorization header in sync with the provider's header state
+  // Browser auth is transported by HttpOnly cookies. Never let this provider set
+  // a bearer Authorization header from JavaScript-accessible state.
   useEffect(() => {
-    if (current) {
-      AuthenticatedAxiosObject.defaults.headers.common["Authorization"] =
-        current;
-    } else {
-      delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
-    }
+    delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
   }, [AuthenticatedAxiosObject, current]);
 
-  const restoreSession = useCallback(
-    (auth, remember) => {
-      setCurrent(auth);
-      setTimeout(() => {
-        refreshToken()
-          .then((data) => {
-            if (data && data.access_token) {
-              const token = `Bearer ${data.access_token}`;
-              setCurrent(token);
-              AuthenticatedAxiosObject.defaults.headers.common[
-                "Authorization"
-              ] = token;
-              if (remember) localStorage.setItem("Authorization", token);
-              sessionStorage.setItem("Authorization", token);
+  const clearLegacyAuthorizationStorage = useCallback(() => {
+    localStorage.removeItem("Authorization");
+    sessionStorage.removeItem("Authorization");
+  }, []);
 
-              if (data.refreshed) {
-                console.info("Token was refreshed with new token");
-              } else {
-                console.info("Token is still valid, using existing token");
-              }
-            } else {
-              localStorage.removeItem("Authorization");
-              sessionStorage.removeItem("Authorization");
-              toast.warn(
-                "Your session could not be restored. Please log in again.",
-                { toastId: "TOKEN_REFRESH_FAILED", icon: <Logout /> }
-              );
-            }
-          })
-          .catch((err) => {
-            console.error("Session restoration failed:", err);
-            localStorage.removeItem("Authorization");
-            sessionStorage.removeItem("Authorization");
-            toast.warn(
-              "Your session could not be restored. Please log in again.",
-              { toastId: "TOKEN_REFRESH_FAILED", icon: <Logout /> }
-            );
-          });
-      }, 100);
-    },
-    [AuthenticatedAxiosObject, refreshToken]
-  );
-
-  // Restore session from storage on mount
+  // Remove old bearer tokens left by previous package/frontend versions. The
+  // backend owns HttpOnly cookie lifetime and cleanup.
   useEffect(() => {
-    const localAuth = localStorage.getItem("Authorization");
-    const sessAuth = sessionStorage.getItem("Authorization");
+    clearLegacyAuthorizationStorage();
+  }, [clearLegacyAuthorizationStorage]);
 
-    if (localAuth) {
-      Promise.resolve().then(() => restoreSession(localAuth, true));
-    } else if (sessAuth) {
-      Promise.resolve().then(() => restoreSession(sessAuth, false));
-    }
-  }, [restoreSession]);
-
-  // Watch for Authorization token updates from other tabs via localStorage
+  // Keep clearing legacy bearer storage if another old tab writes it.
   useEffect(() => {
     const handleStorageChange = (event) => {
-      if (event.key === "Authorization" && event.newValue) {
-        restoreSession(event.newValue, true);
+      if (event.key === "Authorization") {
+        clearLegacyAuthorizationStorage();
       }
     };
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [restoreSession]);
+  }, [clearLegacyAuthorizationStorage]);
 
   const setHeader = (header) => setCurrent(header);
 
@@ -178,25 +134,27 @@ const SessionManagerProvider = ({
 
   const setLoggedin = (status) => setCurrentLoggedIn(status);
 
-  // Periodically refresh the token while logged in
+  // Optionally ping/refresh the server-side cookie session while logged in. This
+  // no longer reads, writes, or rotates bearer tokens in browser storage.
   useEffect(() => {
     const intervalMs = (refreshTimer || 60) * 60 * 1000;
 
-    if (!currentLoggedIn) return;
+    if (!currentLoggedIn || typeof refreshToken !== "function") return;
 
-    const remember = Boolean(localStorage.getItem("Authorization"));
     const interval = setInterval(() => {
-      restoreSession(sessionStorage.getItem("Authorization"), remember);
+      refreshToken().catch((err) => {
+        console.error("Session refresh failed:", err);
+      });
     }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [current, restoreSession, currentLoggedIn, refreshTimer]);
+  }, [currentLoggedIn, refreshTimer, refreshToken]);
 
   // Eject/re-register the Axios response interceptor when the instance changes
   useEffect(() => {
     const onSessionExpired = () => {
       setCurrentLoggedIn(false);
-      AuthenticatedAxiosObject.defaults.headers.common["Authorization"] = "";
+      delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
     };
 
     const interceptorId = AuthenticatedAxiosObject.interceptors.response.use(
