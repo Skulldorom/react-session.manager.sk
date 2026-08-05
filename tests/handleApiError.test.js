@@ -21,7 +21,8 @@ const getLocImpl = () => {
   const implSymbol = Object.getOwnPropertySymbols(window.location).find(
     (s) => s.toString() === "Symbol(impl)"
   );
-  if (!implSymbol) throw new Error("jsdom Symbol(impl) not found on window.location");
+  if (!implSymbol)
+    throw new Error("jsdom Symbol(impl) not found on window.location");
   return window.location[implSymbol];
 };
 
@@ -30,9 +31,7 @@ let reloadSpy;
 beforeEach(() => {
   jest.clearAllMocks();
   sessionStorage.clear();
-  reloadSpy = jest
-    .spyOn(getLocImpl(), "reload")
-    .mockImplementation(() => {});
+  reloadSpy = jest.spyOn(getLocImpl(), "reload").mockImplementation(() => {});
 });
 
 describe("handleApiError", () => {
@@ -41,9 +40,9 @@ describe("handleApiError", () => {
       const onSessionExpired = jest.fn();
       const error = { response: { status: 401 } };
 
-      await expect(
-        handleApiError(error, { onSessionExpired })
-      ).rejects.toEqual(error);
+      await expect(handleApiError(error, { onSessionExpired })).rejects.toEqual(
+        error
+      );
 
       expect(onSessionExpired).toHaveBeenCalledTimes(1);
       expect(toast.error).toHaveBeenCalledWith(
@@ -95,6 +94,32 @@ describe("handleApiError", () => {
       jest.useRealTimers();
     });
 
+    it("clears browser caches before reloading when the Cache API is available", async () => {
+      jest.useFakeTimers();
+      const keys = jest.fn().mockResolvedValue(["app-cache", "asset-cache"]);
+      const deleteCache = jest.fn().mockResolvedValue(true);
+      Object.defineProperty(window, "caches", {
+        configurable: true,
+        value: { keys, delete: deleteCache },
+      });
+      const error = {
+        response: {
+          status: 426,
+          data: { minVersion: "2.0.0" },
+        },
+      };
+
+      await expect(handleApiError(error)).rejects.toEqual(error);
+      await jest.runAllTimersAsync();
+
+      expect(keys).toHaveBeenCalledTimes(1);
+      expect(deleteCache).toHaveBeenCalledWith("app-cache");
+      expect(deleteCache).toHaveBeenCalledWith("asset-cache");
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+      delete window.caches;
+      jest.useRealTimers();
+    });
+
     it("shows an update warning after two reload attempts", async () => {
       jest.useFakeTimers();
       sessionStorage.setItem("appReloads", "2");
@@ -127,9 +152,9 @@ describe("handleApiError", () => {
         },
       };
 
-      await expect(
-        handleApiError(error, { onSessionExpired })
-      ).rejects.toEqual(error);
+      await expect(handleApiError(error, { onSessionExpired })).rejects.toEqual(
+        error
+      );
 
       expect(onSessionExpired).toHaveBeenCalledTimes(1);
       expect(toast.info).toHaveBeenCalledWith(
@@ -147,9 +172,9 @@ describe("handleApiError", () => {
         },
       };
 
-      await expect(
-        handleApiError(error, { onSessionExpired })
-      ).rejects.toEqual(error);
+      await expect(handleApiError(error, { onSessionExpired })).rejects.toEqual(
+        error
+      );
 
       expect(onSessionExpired).not.toHaveBeenCalled();
       expect(toast.info).not.toHaveBeenCalled();

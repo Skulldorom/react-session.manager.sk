@@ -44,6 +44,25 @@ describe("useDeviceFingerprint", () => {
     expect(getDeviceFingerprint).not.toHaveBeenCalled();
   });
 
+  it("logs an error and leaves storage/header unchanged when generation fails", async () => {
+    const getDeviceFingerprint = require("../src/components/FingerPrint.js");
+    const error = new Error("fingerprint failed");
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    getDeviceFingerprint.mockRejectedValueOnce(error);
+
+    const { result } = renderHook(() => useDeviceFingerprint(mockAxios));
+
+    await waitFor(() =>
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Failed to generate device fingerprint:",
+        error
+      )
+    );
+    expect(result.current).toBeNull();
+    expect(localStorage.getItem("deviceUID")).toBeNull();
+    expect(mockAxios.defaults.headers.common).not.toHaveProperty("deviceUID");
+  });
+
   it("sets the deviceUID on the axios instance header", async () => {
     localStorage.setItem("deviceUID", "header-uid");
 

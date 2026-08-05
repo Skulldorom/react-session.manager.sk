@@ -18,6 +18,8 @@ jest.mock("../src/hooks/useDeviceFingerprint.js", () =>
 
 jest.mock("../src/components/VersionProtection.js", () => () => null);
 
+const useDeviceFingerprint = require("../src/hooks/useDeviceFingerprint.js");
+
 // Helper: creates a minimal fake Axios instance
 function createMockAxios() {
   return {
@@ -47,7 +49,9 @@ function ContextReader({ onValue }) {
 function renderProvider({
   axiosInstance,
   refreshToken = jest.fn().mockResolvedValue(null),
-  userLoader = jest.fn().mockResolvedValue({ data: { logged_in: false, is_admin: false, Info: {} } }),
+  userLoader = jest.fn().mockResolvedValue({
+    data: { logged_in: false, is_admin: false, Info: {} },
+  }),
   appVersion = "1.0.0",
   onSessionChange,
   refreshTimer,
@@ -57,7 +61,7 @@ function renderProvider({
   const mockAxios = axiosInstance ?? createMockAxios();
   let capturedCtx = {};
 
-  render(
+  const renderResult = render(
     <SessionManagerProvider
       AuthenticatedAxiosObject={mockAxios}
       refreshToken={refreshToken}
@@ -68,15 +72,24 @@ function renderProvider({
       dataRefresh={dataRefresh}
       toastOptions={toastOptions}
     >
-      <ContextReader onValue={(ctx) => { capturedCtx = ctx; }} />
+      <ContextReader
+        onValue={(ctx) => {
+          capturedCtx = ctx;
+        }}
+      />
     </SessionManagerProvider>
   );
 
-  return { mockAxios, getCaptured: () => capturedCtx };
+  return {
+    mockAxios,
+    getCaptured: () => capturedCtx,
+    unmount: renderResult.unmount,
+  };
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  jest.spyOn(console, "info").mockImplementation(() => {});
   localStorage.clear();
   sessionStorage.clear();
 });
@@ -95,12 +108,16 @@ describe("SessionManagerProvider", () => {
 
     it("provides deviceUID from the hook", async () => {
       const { getCaptured } = renderProvider();
-      await waitFor(() => expect(getCaptured().deviceUID).toBe("test-device-uid"));
+      await waitFor(() =>
+        expect(getCaptured().deviceUID).toBe("test-device-uid")
+      );
     });
 
     it("provides a non-null hasRole function", async () => {
       const { getCaptured } = renderProvider();
-      await waitFor(() => expect(typeof getCaptured().hasRole).toBe("function"));
+      await waitFor(() =>
+        expect(typeof getCaptured().hasRole).toBe("function")
+      );
     });
   });
 
@@ -108,7 +125,9 @@ describe("SessionManagerProvider", () => {
     it("updates isLoggedIn to true", async () => {
       const { getCaptured } = renderProvider();
 
-      await waitFor(() => expect(typeof getCaptured().setLoggedin).toBe("function"));
+      await waitFor(() =>
+        expect(typeof getCaptured().setLoggedin).toBe("function")
+      );
 
       act(() => {
         getCaptured().setLoggedin(true);
@@ -120,7 +139,9 @@ describe("SessionManagerProvider", () => {
     it("updates isLoggedIn to false", async () => {
       const { getCaptured } = renderProvider();
 
-      await waitFor(() => expect(typeof getCaptured().setLoggedin).toBe("function"));
+      await waitFor(() =>
+        expect(typeof getCaptured().setLoggedin).toBe("function")
+      );
 
       act(() => {
         getCaptured().setLoggedin(true);
@@ -137,41 +158,49 @@ describe("SessionManagerProvider", () => {
     it("updates the header value", async () => {
       const { getCaptured } = renderProvider();
 
-      await waitFor(() => expect(typeof getCaptured().setHeader).toBe("function"));
+      await waitFor(() =>
+        expect(typeof getCaptured().setHeader).toBe("function")
+      );
 
       act(() => {
         getCaptured().setHeader("Bearer test-token");
       });
 
-      await waitFor(() => expect(getCaptured().header).toBe("Bearer test-token"));
+      await waitFor(() =>
+        expect(getCaptured().header).toBe("Bearer test-token")
+      );
     });
   });
 
   describe("hasRole", () => {
     it("returns true when the user has the queried role", async () => {
-      const userLoader = jest
-        .fn()
-        .mockResolvedValue({
-          data: { logged_in: true, is_admin: false, Info: { roles: ["admin", "editor"] } },
-        });
+      const userLoader = jest.fn().mockResolvedValue({
+        data: {
+          logged_in: true,
+          is_admin: false,
+          Info: { roles: ["admin", "editor"] },
+        },
+      });
 
       const { getCaptured } = renderProvider({ userLoader });
 
-      await waitFor(() => expect(getCaptured().userInfo?.roles).toEqual(["admin", "editor"]));
+      await waitFor(() =>
+        expect(getCaptured().userInfo?.roles).toEqual(["admin", "editor"])
+      );
 
       expect(getCaptured().hasRole(["admin"])).toBe(true);
     });
 
     it("returns false when the user does not have the queried role", async () => {
-      const userLoader = jest
-        .fn()
-        .mockResolvedValue({
-          data: { logged_in: true, is_admin: false, Info: { roles: ["viewer"] } },
-        });
+      const userLoader = jest.fn().mockResolvedValue({
+        data: { logged_in: true, is_admin: false, Info: { roles: ["viewer"] } },
+      });
 
       const { getCaptured } = renderProvider({ userLoader });
 
-      await waitFor(() => expect(getCaptured().userInfo?.roles).toEqual(["viewer"]));
+      await waitFor(() =>
+        expect(getCaptured().userInfo?.roles).toEqual(["viewer"])
+      );
 
       expect(getCaptured().hasRole(["admin"])).toBe(false);
     });
@@ -179,7 +208,9 @@ describe("SessionManagerProvider", () => {
     it("returns false when userInfo has no roles", async () => {
       const { getCaptured } = renderProvider();
 
-      await waitFor(() => expect(typeof getCaptured().hasRole).toBe("function"));
+      await waitFor(() =>
+        expect(typeof getCaptured().hasRole).toBe("function")
+      );
 
       expect(getCaptured().hasRole(["admin"])).toBe(false);
     });
@@ -209,11 +240,16 @@ describe("SessionManagerProvider", () => {
     });
 
     it("sets loadingUser to false even when userLoader rejects", async () => {
-      const userLoader = jest.fn().mockRejectedValue(new Error("network error"));
+      const error = new Error("network error");
+      const errorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const userLoader = jest.fn().mockRejectedValue(error);
 
       const { getCaptured } = renderProvider({ userLoader });
 
       await waitFor(() => expect(getCaptured().loadingUser).toBe(false));
+      expect(errorSpy).toHaveBeenCalledWith("User data fetch failed:", error);
     });
   });
 
@@ -245,7 +281,9 @@ describe("SessionManagerProvider", () => {
       const onSessionChange = jest.fn();
       const { getCaptured } = renderProvider({ onSessionChange });
 
-      await waitFor(() => expect(typeof getCaptured().setLoggedin).toBe("function"));
+      await waitFor(() =>
+        expect(typeof getCaptured().setLoggedin).toBe("function")
+      );
 
       act(() => {
         getCaptured().setLoggedin(true);
@@ -272,9 +310,70 @@ describe("SessionManagerProvider", () => {
       expect(mockAxios.defaults.withCredentials).toBe(true);
     });
 
+    it("sets deviceUID and appVersion headers when values are present", () => {
+      const { mockAxios } = renderProvider({ appVersion: "2.1.0" });
+
+      expect(mockAxios.defaults.headers.common["deviceUID"]).toBe(
+        "test-device-uid"
+      );
+      expect(mockAxios.defaults.headers.common["appVersion"]).toBe("2.1.0");
+    });
+
+    it("removes stale deviceUID and appVersion headers when values are absent", () => {
+      useDeviceFingerprint.mockReturnValueOnce(null);
+      const axiosInstance = createMockAxios();
+      axiosInstance.defaults.headers.common["deviceUID"] = "stale-device";
+      axiosInstance.defaults.headers.common["appVersion"] = "stale-version";
+
+      renderProvider({ axiosInstance, appVersion: null });
+
+      expect(axiosInstance.defaults.headers.common).not.toHaveProperty(
+        "deviceUID"
+      );
+      expect(axiosInstance.defaults.headers.common).not.toHaveProperty(
+        "appVersion"
+      );
+    });
+
     it("registers a response interceptor", () => {
       const { mockAxios } = renderProvider();
       expect(mockAxios.interceptors.response.use).toHaveBeenCalledTimes(1);
+    });
+
+    it("passes successful responses through the registered interceptor", () => {
+      const { mockAxios } = renderProvider();
+      const [onFulfilled] = mockAxios.interceptors.response.use.mock.calls[0];
+      const response = { data: { ok: true } };
+
+      expect(onFulfilled(response)).toBe(response);
+    });
+
+    it("marks the session logged out when the interceptor handles session expiry", async () => {
+      const { getCaptured, mockAxios } = renderProvider();
+
+      await waitFor(() =>
+        expect(typeof getCaptured().setLoggedin).toBe("function")
+      );
+      act(() => {
+        getCaptured().setLoggedin(true);
+      });
+      await waitFor(() => expect(getCaptured().isLoggedIn).toBe(true));
+
+      mockAxios.defaults.headers.common["Authorization"] = "Bearer expired";
+      const [, onRejected] = mockAxios.interceptors.response.use.mock.calls[0];
+      const error = { response: { status: 401 } };
+
+      await expect(onRejected(error)).rejects.toBe(error);
+      await waitFor(() => expect(getCaptured().isLoggedIn).toBe(false));
+      expect(mockAxios.defaults.headers.common["Authorization"]).toBe("");
+    });
+
+    it("ejects the response interceptor on unmount", () => {
+      const { mockAxios, unmount } = renderProvider();
+
+      unmount();
+
+      expect(mockAxios.interceptors.response.eject).toHaveBeenCalledWith(1);
     });
   });
 
@@ -336,7 +435,11 @@ describe("SessionManagerProvider", () => {
     it("shows a warning toast when refreshToken rejects", async () => {
       localStorage.setItem("Authorization", "Bearer old-token");
       const { toast } = require("react-toastify");
-      const refreshToken = jest.fn().mockRejectedValue(new Error("refresh failed"));
+      const error = new Error("refresh failed");
+      const errorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const refreshToken = jest.fn().mockRejectedValue(error);
 
       renderProvider({ refreshToken });
 
@@ -346,14 +449,132 @@ describe("SessionManagerProvider", () => {
           expect.objectContaining({ toastId: "TOKEN_REFRESH_FAILED" })
         )
       );
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Session restoration failed:",
+        error
+      );
+    });
+  });
+
+  describe("periodic token refresh", () => {
+    it("refreshes the stored session while logged in", async () => {
+      sessionStorage.setItem("Authorization", "Bearer interval-token");
+      const refreshToken = jest.fn().mockResolvedValue({
+        access_token: "interval-token-new",
+        refreshed: true,
+      });
+      const { getCaptured } = renderProvider({
+        refreshToken,
+        refreshTimer: 0.001,
+      });
+
+      await waitFor(() =>
+        expect(typeof getCaptured().setLoggedin).toBe("function")
+      );
+      refreshToken.mockClear();
+      act(() => {
+        getCaptured().setLoggedin(true);
+      });
+
+      await act(async () => {
+        jest.advanceTimersByTime(170);
+      });
+
+      await waitFor(() => expect(refreshToken).toHaveBeenCalled());
+    });
+  });
+
+  describe("manual user data refresh", () => {
+    it("refreshes userInfo when refreshData is set", async () => {
+      const userLoader = jest
+        .fn()
+        .mockResolvedValueOnce({
+          data: { logged_in: true, is_admin: false, Info: { name: "Initial" } },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            logged_in: true,
+            is_admin: false,
+            Info: { name: "Refreshed" },
+          },
+        });
+
+      const { getCaptured } = renderProvider({ userLoader });
+      await waitFor(() =>
+        expect(getCaptured().userInfo).toEqual({ name: "Initial" })
+      );
+
+      act(() => {
+        getCaptured().setRefreshData(true);
+      });
+
+      await waitFor(() =>
+        expect(getCaptured().userInfo).toEqual({ name: "Refreshed" })
+      );
+      await waitFor(() => expect(getCaptured().refreshData).toBe(false));
+    });
+
+    it("resets refreshData when the refresh response is invalid", async () => {
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      const userLoader = jest
+        .fn()
+        .mockResolvedValueOnce({
+          data: { logged_in: true, is_admin: false, Info: { name: "Initial" } },
+        })
+        .mockResolvedValueOnce(null);
+
+      const { getCaptured } = renderProvider({ userLoader });
+      await waitFor(() =>
+        expect(getCaptured().userInfo).toEqual({ name: "Initial" })
+      );
+
+      act(() => {
+        getCaptured().setRefreshData(true);
+      });
+
+      await waitFor(() =>
+        expect(warnSpy).toHaveBeenCalledWith("Invalid refresh data response")
+      );
+      await waitFor(() => expect(getCaptured().refreshData).toBe(false));
+    });
+
+    it("resets refreshData when user refresh fails", async () => {
+      const errorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const refreshError = new Error("refresh user failed");
+      const userLoader = jest
+        .fn()
+        .mockResolvedValueOnce({
+          data: { logged_in: true, is_admin: false, Info: { name: "Initial" } },
+        })
+        .mockRejectedValueOnce(refreshError);
+
+      const { getCaptured } = renderProvider({ userLoader });
+      await waitFor(() =>
+        expect(getCaptured().userInfo).toEqual({ name: "Initial" })
+      );
+
+      act(() => {
+        getCaptured().setRefreshData(true);
+      });
+
+      await waitFor(() =>
+        expect(errorSpy).toHaveBeenCalledWith(
+          "Error refreshing user data:",
+          refreshError
+        )
+      );
+      await waitFor(() => expect(getCaptured().refreshData).toBe(false));
     });
   });
 
   describe("cross-tab storage event", () => {
     it("calls refreshToken when a storage event updates Authorization", async () => {
-      const refreshToken = jest
-        .fn()
-        .mockResolvedValue({ access_token: "cross-tab-token", refreshed: true });
+      const refreshToken = jest.fn().mockResolvedValue({
+        access_token: "cross-tab-token",
+        refreshed: true,
+      });
 
       renderProvider({ refreshToken });
 
@@ -376,7 +597,10 @@ describe("SessionManagerProvider", () => {
 
       act(() => {
         window.dispatchEvent(
-          new StorageEvent("storage", { key: "SomeOtherKey", newValue: "value" })
+          new StorageEvent("storage", {
+            key: "SomeOtherKey",
+            newValue: "value",
+          })
         );
       });
 

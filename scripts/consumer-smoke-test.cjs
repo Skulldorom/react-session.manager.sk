@@ -1,14 +1,36 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
-const { mkdtempSync, mkdirSync, readFileSync, writeFileSync, readdirSync, rmSync } = require("node:fs");
+const {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  rmSync,
+} = require("node:fs");
 const net = require("node:net");
 const os = require("node:os");
 const path = require("node:path");
 
 const projectRoot = path.resolve(__dirname, "..");
-const tempRoot = mkdtempSync(path.join(os.tmpdir(), "react-session-manager-consumer-"));
-const appRoot = path.join(tempRoot, "app");
-const packageRoot = path.join(tempRoot, "package");
+let tempRoot;
+let appRoot;
+let packageRoot;
+
+function getConsumerSmokeTempParent() {
+  return path.resolve(
+    process.env.REACT_SESSION_MANAGER_CONSUMER_TMPDIR || os.tmpdir()
+  );
+}
+
+function createConsumerSmokePaths() {
+  mkdirSync(getConsumerSmokeTempParent(), { recursive: true });
+  tempRoot = mkdtempSync(
+    path.join(getConsumerSmokeTempParent(), "react-session-manager-consumer-")
+  );
+  appRoot = path.join(tempRoot, "app");
+  packageRoot = path.join(tempRoot, "package");
+}
 
 function run(command, args, options = {}) {
   execFileSync(command, args, {
@@ -108,7 +130,9 @@ async function runBrowserSmoke() {
   try {
     await waitForUrl(previewUrl);
 
-    const { chromium } = require(path.join(appRoot, "node_modules", "playwright"));
+    const { chromium } = require(
+      path.join(appRoot, "node_modules", "playwright")
+    );
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     const pageErrors = [];
@@ -128,8 +152,16 @@ async function runBrowserSmoke() {
 
     const renderedText = await page.locator("#root").innerText();
     assert.match(renderedText, /Consumer smoke ready/);
-    assert.deepEqual(pageErrors, [], "consumer app must not throw browser page errors");
-    assert.deepEqual(consoleErrors, [], "consumer app must not log browser console errors");
+    assert.deepEqual(
+      pageErrors,
+      [],
+      "consumer app must not throw browser page errors"
+    );
+    assert.deepEqual(
+      consoleErrors,
+      [],
+      "consumer app must not log browser console errors"
+    );
   } catch (error) {
     error.message = `${error.message}\n\nVite preview output:\n${previewOutput}`;
     throw error;
@@ -161,6 +193,7 @@ async function runBrowserSmoke() {
 }
 
 async function main() {
+  createConsumerSmokePaths();
   mkdirSync(packageRoot, { recursive: true });
   mkdirSync(appRoot, { recursive: true });
 
@@ -250,7 +283,10 @@ createRoot(document.getElementById('root')).render(
   run("npm", ["run", "build"], { cwd: appRoot });
 
   const builtJavaScript = readBuiltJavaScriptFiles(path.join(appRoot, "dist"));
-  assert.ok(builtJavaScript.length > 0, "consumer build must emit JavaScript assets");
+  assert.ok(
+    builtJavaScript.length > 0,
+    "consumer build must emit JavaScript assets"
+  );
   for (const { file, content } of builtJavaScript) {
     assert.ok(!content.includes("jsxDEV"), `${file} must not contain jsxDEV`);
     assert.ok(
@@ -264,15 +300,23 @@ createRoot(document.getElementById('root')).render(
   console.log("Consumer smoke test passed.");
 }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
-  })
-  .finally(() => {
-    if (!process.env.KEEP_CONSUMER_SMOKE_TEST_DIR) {
-      rmSync(tempRoot, { recursive: true, force: true });
-    } else {
-      console.log(`Consumer smoke test directory kept at ${tempRoot}`);
-    }
-  });
+if (require.main === module) {
+  main()
+    .catch((error) => {
+      console.error(error);
+      process.exitCode = 1;
+    })
+    .finally(() => {
+      if (!tempRoot) return;
+
+      if (!process.env.KEEP_CONSUMER_SMOKE_TEST_DIR) {
+        rmSync(tempRoot, { recursive: true, force: true });
+      } else {
+        console.log(`Consumer smoke test directory kept at ${tempRoot}`);
+      }
+    });
+}
+
+module.exports = {
+  getConsumerSmokeTempParent,
+};
