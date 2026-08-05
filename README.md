@@ -6,6 +6,23 @@
 
 A React context provider for managing cookie-based user sessions in applications backed by a Flask API. It configures credentialed Axios requests, CSRF headers, device fingerprinting, app version enforcement, and user-facing toast notifications — all from a single wrapper component.
 
+Designed to pair with the backend companion
+[flask-session.manager.sk](https://github.com/Skulldorom/flask-session.manager.sk).
+
+---
+
+## Flask Companion Contract
+
+This package and [flask-session.manager.sk](https://github.com/Skulldorom/flask-session.manager.sk) implement a cookie-driven session architecture:
+
+| Concern | Implementation |
+|---|---|
+| **Transport** | HttpOnly JWT cookies — no bearer tokens in browser storage |
+| **CSRF** | Double-submit cookie pattern (`csrf_access_token` → `X-CSRF-TOKEN`) |
+| **Cookie names** | Flask-JWT-Extended defaults (`access_token_cookie`, `csrf_access_token`) |
+| **Headers** | `deviceUID` and `appVersion` sent on every request |
+| **API contract** | `userLoader` expects `{ data: { logged_in, is_admin, Info } }` |
+
 ---
 
 ## Table of Contents
@@ -13,6 +30,7 @@ A React context provider for managing cookie-based user sessions in applications
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Flask Companion Contract](#flask-companion-contract)
 - [Props](#props)
 - [Context API](#context-api)
 - [How It Works](#how-it-works)
