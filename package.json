@@ -1,6 +1,6 @@
 {
   "name": "react-session.manager.sk",
-  "version": "4.0.6",
+  "version": "4.0.7",
   "description": "A react component used to manage token sessions with flask backend",
   "main": "./dist/index.js",
   "files": [
