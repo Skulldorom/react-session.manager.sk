@@ -142,7 +142,8 @@ jobs:
 
           [skip-version]"
           git tag ${{ steps.bump.outputs.tag }}
-          git push origin "HEAD:$DEFAULT_BRANCH" --follow-tags
+          git push origin "HEAD:$DEFAULT_BRANCH"
+          git push origin "v${NEW_VERSION}"
 
       # ── Build + publish ─────────────────────────────────────
       - run: npm run build
