@@ -1,7 +1,7 @@
 # react-session.manager.sk
 
 [![Tests](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/tests.yml/badge.svg)](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/tests.yml)
-[![Release](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/npm-publish.yml)
+[![Release](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/releases.yml/badge.svg)](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/npm-publish.yml)
 [![GitHub release](https://img.shields.io/github/v/release/Skulldorom/react-session.manager.sk)](https://github.com/Skulldorom/react-session.manager.sk/releases)
 
 A React context provider for managing cookie-based user sessions in applications backed by a Flask API. It configures credentialed Axios requests, CSRF headers, device fingerprinting, app version enforcement, and user-facing toast notifications — all from a single wrapper component.
