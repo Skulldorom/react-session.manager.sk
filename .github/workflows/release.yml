@@ -198,7 +198,17 @@ jobs:
         run: npm run build
 
       - if: steps.check.outputs.skip != 'true'
-        run: npm publish --provenance --access public
+        run: |
+          npm publish --provenance --access public || {
+            PKG_VERSION=$(node -p "require('./package.json').version")
+            PKG_NAME=$(node -p "require('./package.json').name")
+            if npm view "$PKG_NAME@$PKG_VERSION" version &>/dev/null; then
+              echo "Package $PKG_NAME@$PKG_VERSION already published — continuing"
+            else
+              echo "Package $PKG_NAME@$PKG_VERSION not found on npm — publish failed"
+              exit 1
+            fi
+          }
 
       - name: Create GitHub Release
         if: steps.check.outputs.skip != 'true'
@@ -208,5 +218,7 @@ jobs:
           if gh release view "${{ github.ref_name }}" &>/dev/null; then
             echo "Release ${{ github.ref_name }} already exists — skipping"
           else
-            gh release create "${{ github.ref_name }}"               --title "${{ github.ref_name }}"               --generate-notes
+            gh release create "${{ github.ref_name }}" \
+              --title "${{ github.ref_name }}" \
+              --generate-notes
           fi
