@@ -31,8 +31,8 @@ concurrency:
 
 env:
   DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-  LABEL_MAJOR: semver:major
-  LABEL_MINOR: semver:minor
+  LABEL_MAJOR: version:major
+  LABEL_MINOR: version:minor
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
