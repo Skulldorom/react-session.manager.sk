@@ -16,12 +16,6 @@
     "lint": "eslint src/**/*.{js,jsx}",
     "lint:fix": "eslint src/**/*.{js,jsx} --fix",
     "format": "prettier --write src/**/*.{js,jsx,css}",
-    "version:patch": "npm version patch",
-    "version:minor": "npm version minor",
-    "version:major": "npm version major",
-    "release:patch": "npm run version:patch && git push --follow-tags",
-    "release:minor": "npm run version:minor && git push --follow-tags",
-    "release:major": "npm run version:major && git push --follow-tags",
     "preversion": "npm run lint && npm run test:general && npm run build && npm run test:smoke && npm run test:consumer-smoke",
     "postversion": "node -e \"console.log('Version updated to ' + require('./package.json').version)\""
   },
