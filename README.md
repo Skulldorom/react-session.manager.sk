@@ -4,6 +4,10 @@
 [![Release](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/release.yml/badge.svg)](https://github.com/Skulldorom/react-session.manager.sk/actions/workflows/npm-publish.yml)
 [![GitHub release](https://img.shields.io/github/v/release/Skulldorom/react-session.manager.sk)](https://github.com/Skulldorom/react-session.manager.sk/releases)
 
+<p align="center">
+  <a href="https://ko-fi.com/skulldorom"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi" /></a>
+</p>
+
 A React context provider for managing cookie-based user sessions in applications backed by a Flask API. It configures credentialed Axios requests, CSRF headers, device fingerprinting, app version enforcement, and user-facing toast notifications — all from a single wrapper component.
 
 Designed to pair with the backend companion
