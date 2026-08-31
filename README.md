@@ -205,16 +205,33 @@ If `refreshToken` is provided, it is treated as a session ping/refresh endpoint 
 
 ### Device Fingerprinting
 
-On first load the provider uses [FingerprintJS](https://github.com/fingerprintjs/fingerprintjs) to generate a browser fingerprint. This value is persisted to `localStorage` as `deviceUID` and is automatically added to every outgoing request as a custom `deviceUID` header. Subsequent loads reuse the cached value.
+On first load the provider uses [FingerprintJS](https://github.com/fingerprintjs/fingerprintjs) to generate a browser fingerprint. This value is persisted to `localStorage` as the canonical `deviceUID` key and is automatically added to every outgoing request as a custom `deviceUID` header. Subsequent loads reuse the cached value.
 
-You can also use the fingerprint helper directly in your own code:
+Versions that stored the same browser identity under the older `deviceFingerprint` key are migrated automatically: when `deviceUID` is absent and `deviceFingerprint` is present, the legacy value is copied to `deviceUID` and the legacy key is removed. This prevents unnecessary new device registrations during upgrade while keeping one supported storage location.
+
+The device UID is a browser/device association signal, not an authentication secret:
+
+- it is JavaScript-readable by design
+- it can change when browser, privacy, profile, or device characteristics change
+- it can be reset locally by the application
+- it can be spoofed by a malicious client
+- it is not sufficient authentication on its own
+
+Treat `deviceUID` as context for registered-device/session checks. The Flask companion must still verify actual session or token possession independently through HttpOnly cookies, CSRF checks, and server-side token validation.
+
+You can also use the fingerprint helper directly in your own code, and expose a supported local reset flow without manipulating storage keys manually:
 
 ```js
-import { getDeviceFingerprint } from "react-session.manager.sk";
+import { getDeviceFingerprint, resetDeviceUID } from "react-session.manager.sk";
 
 async function sendRequest() {
   const deviceUID = await getDeviceFingerprint();
   // use deviceUID in your request payload/headers
+}
+
+function forgetThisDevice() {
+  resetDeviceUID();
+  window.location.reload();
 }
 ```
 

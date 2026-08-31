@@ -20,28 +20,28 @@ beforeEach(() => {
 });
 
 describe("useDeviceFingerprint", () => {
-  it("returns the deviceUID stored in localStorage", () => {
-    localStorage.setItem("deviceUID", "stored-uid");
+  it("returns the canonical deviceUID from the shared helper", async () => {
+    const getDeviceFingerprint = require("../src/components/FingerPrint.js");
+    getDeviceFingerprint.mockResolvedValueOnce("stored-uid");
 
     const { result } = renderHook(() => useDeviceFingerprint(mockAxios));
 
-    expect(result.current).toBe("stored-uid");
+    await waitFor(() => expect(result.current).toBe("stored-uid"));
   });
 
-  it("generates and stores a new deviceUID when none is cached", async () => {
+  it("generates and stores a new deviceUID through the shared helper", async () => {
     const { result } = renderHook(() => useDeviceFingerprint(mockAxios));
 
     await waitFor(() => expect(result.current).toBe("generated-uid"));
-    expect(localStorage.getItem("deviceUID")).toBe("generated-uid");
+    expect(localStorage.getItem("deviceUID")).toBeNull();
   });
 
-  it("does not call getDeviceFingerprint when deviceUID is already in localStorage", () => {
+  it("delegates storage ownership to getDeviceFingerprint", async () => {
     const getDeviceFingerprint = require("../src/components/FingerPrint.js");
-    localStorage.setItem("deviceUID", "cached-uid");
 
     renderHook(() => useDeviceFingerprint(mockAxios));
 
-    expect(getDeviceFingerprint).not.toHaveBeenCalled();
+    await waitFor(() => expect(getDeviceFingerprint).toHaveBeenCalledTimes(1));
   });
 
   it("logs an error and leaves storage/header unchanged when generation fails", async () => {
@@ -64,12 +64,12 @@ describe("useDeviceFingerprint", () => {
   });
 
   it("sets the deviceUID on the axios instance header", async () => {
-    localStorage.setItem("deviceUID", "header-uid");
-
     renderHook(() => useDeviceFingerprint(mockAxios));
 
     await waitFor(() =>
-      expect(mockAxios.defaults.headers.common["deviceUID"]).toBe("header-uid")
+      expect(mockAxios.defaults.headers.common["deviceUID"]).toBe(
+        "generated-uid"
+      )
     );
   });
 });
