@@ -12,8 +12,13 @@ jest.mock("react-toastify", () => ({
   },
 }));
 
+const mockResetMountedDeviceUID = jest.fn();
+
 jest.mock("../src/hooks/useDeviceFingerprint.js", () =>
-  jest.fn().mockReturnValue("test-device-uid")
+  jest.fn(() => ({
+    deviceUID: "test-device-uid",
+    resetDeviceUID: mockResetMountedDeviceUID,
+  }))
 );
 
 jest.mock("../src/components/VersionProtection.js", () => () => null);
@@ -89,6 +94,7 @@ function renderProvider({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockResetMountedDeviceUID.mockClear();
   jest.spyOn(console, "info").mockImplementation(() => {});
   localStorage.clear();
   sessionStorage.clear();
@@ -110,6 +116,14 @@ describe("SessionManagerProvider", () => {
       const { getCaptured } = renderProvider();
       await waitFor(() =>
         expect(getCaptured().deviceUID).toBe("test-device-uid")
+      );
+    });
+
+    it("provides the mounted resetDeviceUID function from the hook", async () => {
+      const { getCaptured } = renderProvider();
+
+      await waitFor(() =>
+        expect(getCaptured().resetDeviceUID).toBe(mockResetMountedDeviceUID)
       );
     });
 
@@ -251,6 +265,36 @@ describe("SessionManagerProvider", () => {
       await waitFor(() => expect(getCaptured().loadingUser).toBe(false));
       expect(errorSpy).toHaveBeenCalledWith("User data fetch failed:", error);
     });
+
+    it("does not let a stale userLoader response restore a logged-out session", async () => {
+      let resolveUserLoader;
+      const userLoader = jest.fn().mockReturnValue(
+        new Promise((resolve) => {
+          resolveUserLoader = resolve;
+        })
+      );
+
+      const { getCaptured } = renderProvider({ userLoader });
+
+      await act(async () => {
+        jest.advanceTimersByTime(100);
+      });
+      await waitFor(() => expect(userLoader).toHaveBeenCalledTimes(1));
+
+      act(() => {
+        getCaptured().setLoggedin(false);
+      });
+
+      await act(async () => {
+        resolveUserLoader({
+          data: { logged_in: true, is_admin: true, Info: { name: "Stale" } },
+        });
+      });
+
+      expect(getCaptured().isLoggedIn).toBe(false);
+      expect(getCaptured().isAdmin).toBe(false);
+      expect(getCaptured().userInfo).toEqual({});
+    });
   });
 
   describe("onSessionChange", () => {
@@ -347,7 +391,10 @@ describe("SessionManagerProvider", () => {
     });
 
     it("removes stale deviceUID and appVersion headers when values are absent", () => {
-      useDeviceFingerprint.mockReturnValueOnce(null);
+      useDeviceFingerprint.mockReturnValueOnce({
+        deviceUID: null,
+        resetDeviceUID: mockResetMountedDeviceUID,
+      });
       const axiosInstance = createMockAxios();
       axiosInstance.defaults.headers.common["deviceUID"] = "stale-device";
       axiosInstance.defaults.headers.common["appVersion"] = "stale-version";
@@ -375,22 +422,23 @@ describe("SessionManagerProvider", () => {
       expect(onFulfilled(response)).toBe(response);
     });
 
-    it("marks the session logged out when the interceptor handles session expiry", async () => {
-      const { getCaptured, mockAxios } = renderProvider();
-
-      await waitFor(() =>
-        expect(typeof getCaptured().setLoggedin).toBe("function")
-      );
-      act(() => {
-        getCaptured().setLoggedin(true);
+    it("clears the complete session when the interceptor handles session expiry", async () => {
+      const userLoader = jest.fn().mockResolvedValue({
+        data: { logged_in: true, is_admin: true, Info: { name: "Alice" } },
       });
+      const { getCaptured, mockAxios } = renderProvider({ userLoader });
+
       await waitFor(() => expect(getCaptured().isLoggedIn).toBe(true));
+      expect(getCaptured().isAdmin).toBe(true);
+      expect(getCaptured().userInfo).toEqual({ name: "Alice" });
 
       const [, onRejected] = mockAxios.interceptors.response.use.mock.calls[0];
       const error = { response: { status: 401 } };
 
       await expect(onRejected(error)).rejects.toBe(error);
       await waitFor(() => expect(getCaptured().isLoggedIn).toBe(false));
+      expect(getCaptured().isAdmin).toBe(false);
+      expect(getCaptured().userInfo).toEqual({});
       expect(mockAxios.defaults.headers.common).not.toHaveProperty(
         "Authorization"
       );
@@ -473,10 +521,65 @@ describe("SessionManagerProvider", () => {
       await waitFor(() => expect(refreshToken).toHaveBeenCalled());
       expect(sessionStorage.getItem("Authorization")).toBeNull();
     });
+
+    it("keeps the current session when refreshToken has a transient failure", async () => {
+      const transientError = { response: { status: 503 } };
+      const errorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      const refreshToken = jest.fn().mockRejectedValue(transientError);
+      const userLoader = jest.fn().mockResolvedValue({
+        data: { logged_in: true, is_admin: true, Info: { name: "Alice" } },
+      });
+
+      const { getCaptured } = renderProvider({
+        refreshToken,
+        userLoader,
+        refreshTimer: 0.001,
+      });
+      await waitFor(() => expect(getCaptured().isLoggedIn).toBe(true));
+
+      await act(async () => {
+        jest.advanceTimersByTime(170);
+      });
+
+      await waitFor(() => expect(refreshToken).toHaveBeenCalled());
+      expect(getCaptured().isLoggedIn).toBe(true);
+      expect(getCaptured().isAdmin).toBe(true);
+      expect(getCaptured().userInfo).toEqual({ name: "Alice" });
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Session refresh failed:",
+        transientError
+      );
+    });
+
+    it("clears the complete session when refreshToken receives an auth failure", async () => {
+      const refreshToken = jest.fn().mockRejectedValue({
+        response: { status: 401 },
+      });
+      const userLoader = jest.fn().mockResolvedValue({
+        data: { logged_in: true, is_admin: true, Info: { name: "Alice" } },
+      });
+
+      const { getCaptured } = renderProvider({
+        refreshToken,
+        userLoader,
+        refreshTimer: 0.001,
+      });
+      await waitFor(() => expect(getCaptured().isLoggedIn).toBe(true));
+
+      await act(async () => {
+        jest.advanceTimersByTime(170);
+      });
+
+      await waitFor(() => expect(getCaptured().isLoggedIn).toBe(false));
+      expect(getCaptured().isAdmin).toBe(false);
+      expect(getCaptured().userInfo).toEqual({});
+    });
   });
 
   describe("manual user data refresh", () => {
-    it("refreshes userInfo when refreshData is set", async () => {
+    it("refreshes the complete session snapshot when refreshData is set", async () => {
       const userLoader = jest
         .fn()
         .mockResolvedValueOnce({
@@ -485,7 +588,7 @@ describe("SessionManagerProvider", () => {
         .mockResolvedValueOnce({
           data: {
             logged_in: true,
-            is_admin: false,
+            is_admin: true,
             Info: { name: "Refreshed" },
           },
         });
@@ -494,6 +597,7 @@ describe("SessionManagerProvider", () => {
       await waitFor(() =>
         expect(getCaptured().userInfo).toEqual({ name: "Initial" })
       );
+      expect(getCaptured().isAdmin).toBe(false);
 
       act(() => {
         getCaptured().setRefreshData(true);
@@ -502,6 +606,31 @@ describe("SessionManagerProvider", () => {
       await waitFor(() =>
         expect(getCaptured().userInfo).toEqual({ name: "Refreshed" })
       );
+      expect(getCaptured().isLoggedIn).toBe(true);
+      expect(getCaptured().isAdmin).toBe(true);
+      await waitFor(() => expect(getCaptured().refreshData).toBe(false));
+    });
+
+    it("clears the complete session when refreshData reports logged out", async () => {
+      const userLoader = jest
+        .fn()
+        .mockResolvedValueOnce({
+          data: { logged_in: true, is_admin: true, Info: { name: "Initial" } },
+        })
+        .mockResolvedValueOnce({
+          data: { logged_in: false, is_admin: true, Info: { name: "Stale" } },
+        });
+
+      const { getCaptured } = renderProvider({ userLoader });
+      await waitFor(() => expect(getCaptured().isLoggedIn).toBe(true));
+
+      act(() => {
+        getCaptured().setRefreshData(true);
+      });
+
+      await waitFor(() => expect(getCaptured().isLoggedIn).toBe(false));
+      expect(getCaptured().isAdmin).toBe(false);
+      expect(getCaptured().userInfo).toEqual({});
       await waitFor(() => expect(getCaptured().refreshData).toBe(false));
     });
 
