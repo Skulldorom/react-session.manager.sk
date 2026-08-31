@@ -21,6 +21,7 @@ const SessionManagerContext = createContext({
   setRefreshData: null,
   hasRole: null,
   deviceUID: null,
+  resetDeviceUID: null,
   loadingUser: null,
 });
 
@@ -42,7 +43,8 @@ const SessionManagerProvider = ({
   toastOptions,
   children,
 }) => {
-  const deviceUID = useDeviceFingerprint(AuthenticatedAxiosObject);
+  const { deviceUID, resetDeviceUID: resetMountedDeviceUID } =
+    useDeviceFingerprint(AuthenticatedAxiosObject);
   const sessionGenerationRef = useRef(0);
 
   // Deprecated compatibility state. Browser auth is cookie-based; this value is
@@ -250,6 +252,7 @@ const SessionManagerProvider = ({
     setRefreshData,
     hasRole,
     deviceUID,
+    resetDeviceUID: resetMountedDeviceUID,
     loadingUser,
   };
 

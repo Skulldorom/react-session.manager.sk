@@ -12,8 +12,13 @@ jest.mock("react-toastify", () => ({
   },
 }));
 
+const mockResetMountedDeviceUID = jest.fn();
+
 jest.mock("../src/hooks/useDeviceFingerprint.js", () =>
-  jest.fn().mockReturnValue("test-device-uid")
+  jest.fn(() => ({
+    deviceUID: "test-device-uid",
+    resetDeviceUID: mockResetMountedDeviceUID,
+  }))
 );
 
 jest.mock("../src/components/VersionProtection.js", () => () => null);
@@ -89,6 +94,7 @@ function renderProvider({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockResetMountedDeviceUID.mockClear();
   jest.spyOn(console, "info").mockImplementation(() => {});
   localStorage.clear();
   sessionStorage.clear();
@@ -110,6 +116,14 @@ describe("SessionManagerProvider", () => {
       const { getCaptured } = renderProvider();
       await waitFor(() =>
         expect(getCaptured().deviceUID).toBe("test-device-uid")
+      );
+    });
+
+    it("provides the mounted resetDeviceUID function from the hook", async () => {
+      const { getCaptured } = renderProvider();
+
+      await waitFor(() =>
+        expect(getCaptured().resetDeviceUID).toBe(mockResetMountedDeviceUID)
       );
     });
 
@@ -377,7 +391,10 @@ describe("SessionManagerProvider", () => {
     });
 
     it("removes stale deviceUID and appVersion headers when values are absent", () => {
-      useDeviceFingerprint.mockReturnValueOnce(null);
+      useDeviceFingerprint.mockReturnValueOnce({
+        deviceUID: null,
+        resetDeviceUID: mockResetMountedDeviceUID,
+      });
       const axiosInstance = createMockAxios();
       axiosInstance.defaults.headers.common["deviceUID"] = "stale-device";
       axiosInstance.defaults.headers.common["appVersion"] = "stale-version";
