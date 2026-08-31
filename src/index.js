@@ -1,7 +1,7 @@
-import { createContext, useState, useEffect, useCallback, useRef } from "react";
+import { createContext, useState, useEffect, useCallback } from "react";
 import handleApiError from "./components/handleApiError";
 import VersionProtection from "./components/VersionProtection";
-import getDeviceFingerprint, { resetDeviceUID } from "./components/FingerPrint";
+import getDeviceFingerprint from "./components/FingerPrint";
 import useDeviceFingerprint from "./hooks/useDeviceFingerprint";
 
 // Notifications
@@ -21,16 +21,8 @@ const SessionManagerContext = createContext({
   setRefreshData: null,
   hasRole: null,
   deviceUID: null,
-  resetDeviceUID: null,
   loadingUser: null,
 });
-
-const isAuthFailure = (err) => {
-  const status = err?.response?.status;
-  if (status === 401) return true;
-  if (status === 455) return err?.response?.data?.logged_in !== true;
-  return false;
-};
 
 const SessionManagerProvider = ({
   AuthenticatedAxiosObject,
@@ -43,9 +35,7 @@ const SessionManagerProvider = ({
   toastOptions,
   children,
 }) => {
-  const { deviceUID, resetDeviceUID: resetMountedDeviceUID } =
-    useDeviceFingerprint(AuthenticatedAxiosObject);
-  const sessionGenerationRef = useRef(0);
+  const deviceUID = useDeviceFingerprint(AuthenticatedAxiosObject);
 
   // Deprecated compatibility state. Browser auth is cookie-based; this value is
   // exposed only so older consumers that still destructure `header` do not crash.
@@ -108,73 +98,6 @@ const SessionManagerProvider = ({
   const [userInfo, setUserInfo] = useState({});
   const [loadingUser, setLoadingUser] = useState(true);
 
-  const applySessionSnapshot = useCallback((data, generation) => {
-    if (generation !== sessionGenerationRef.current) return false;
-
-    const loggedIn = Boolean(data?.logged_in);
-    setCurrentLoggedIn(loggedIn);
-    setIsAdmin(loggedIn ? Boolean(data?.is_admin) : false);
-    setUserInfo(loggedIn ? (data?.Info ?? {}) : {});
-    return true;
-  }, []);
-
-  const invalidateSession = useCallback(() => {
-    sessionGenerationRef.current += 1;
-    setCurrentLoggedIn(false);
-    setIsAdmin(false);
-    setUserInfo({});
-    delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
-  }, [AuthenticatedAxiosObject]);
-
-  const loadUserSnapshot = useCallback(
-    ({ markLoaded = false, warnMessage = "Invalid user data response" } = {}) => {
-      const generation = sessionGenerationRef.current;
-
-      return userLoader()
-        .then((res) => {
-          if (res && res.data) {
-            applySessionSnapshot(res.data, generation);
-          } else {
-            console.warn(warnMessage);
-          }
-        })
-        .catch((err) => {
-          if (isAuthFailure(err)) {
-            invalidateSession();
-          } else if (warnMessage === "Invalid refresh data response") {
-            console.error("Error refreshing user data:", err);
-          } else {
-            console.error("User data fetch failed:", err);
-          }
-        })
-        .finally(() => {
-          if (markLoaded && generation === sessionGenerationRef.current) {
-            setLoadingUser(false);
-          }
-        });
-    },
-    [applySessionSnapshot, invalidateSession, userLoader]
-  );
-
-  useEffect(() => {
-    const userLoaderTimer = setTimeout(() => {
-      loadUserSnapshot({ markLoaded: true });
-    }, 100);
-
-    return () => clearTimeout(userLoaderTimer);
-  }, [loadUserSnapshot]);
-
-  const setLoggedin = useCallback(
-    (status) => {
-      if (status) {
-        setCurrentLoggedIn(true);
-        return;
-      }
-      invalidateSession();
-    },
-    [invalidateSession]
-  );
-
   useEffect(() => {
     onSessionChange?.({
       isLoggedIn: currentLoggedIn,
@@ -185,6 +108,32 @@ const SessionManagerProvider = ({
     });
   }, [onSessionChange, currentLoggedIn, isAdmin, userInfo, loadingUser, deviceUID]);
 
+  useEffect(() => {
+    const userLoaderTimer = setTimeout(() => {
+      userLoader()
+        .then((res) => {
+          if (res && res.data) {
+            const data = res.data;
+            setCurrentLoggedIn(data.logged_in);
+            setIsAdmin(data.is_admin);
+            setUserInfo(data.Info);
+          } else {
+            console.warn("Invalid user data response");
+          }
+        })
+        .catch((err) => {
+          console.error("User data fetch failed:", err);
+        })
+        .finally(() => {
+          setLoadingUser(false);
+        });
+    }, 100);
+
+    return () => clearTimeout(userLoaderTimer);
+  }, [current, currentLoggedIn, userLoader]);
+
+  const setLoggedin = (status) => setCurrentLoggedIn(status);
+
   // Optionally ping/refresh the server-side cookie session while logged in. This
   // no longer reads, writes, or rotates bearer tokens in browser storage.
   useEffect(() => {
@@ -193,31 +142,30 @@ const SessionManagerProvider = ({
     if (!currentLoggedIn || typeof refreshToken !== "function") return;
 
     const interval = setInterval(() => {
-      refreshToken()
-        .then(() => loadUserSnapshot())
-        .catch((err) => {
-          if (isAuthFailure(err)) {
-            invalidateSession();
-          } else {
-            console.error("Session refresh failed:", err);
-          }
-        });
+      refreshToken().catch((err) => {
+        console.error("Session refresh failed:", err);
+      });
     }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [currentLoggedIn, refreshTimer, refreshToken, loadUserSnapshot, invalidateSession]);
+  }, [currentLoggedIn, refreshTimer, refreshToken]);
 
   // Eject/re-register the Axios response interceptor when the instance changes
   useEffect(() => {
+    const onSessionExpired = () => {
+      setCurrentLoggedIn(false);
+      delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
+    };
+
     const interceptorId = AuthenticatedAxiosObject.interceptors.response.use(
       (response) => response,
-      (error) => handleApiError(error, { onSessionExpired: invalidateSession })
+      (error) => handleApiError(error, { onSessionExpired })
     );
 
     return () => {
       AuthenticatedAxiosObject.interceptors.response.eject(interceptorId);
     };
-  }, [AuthenticatedAxiosObject, invalidateSession]);
+  }, [AuthenticatedAxiosObject]);
 
   // Periodic user-data refresh flag
   const [refreshData, setRefreshData] = useState(false);
@@ -231,12 +179,21 @@ const SessionManagerProvider = ({
   useEffect(() => {
     if (!refreshData) return;
 
-    loadUserSnapshot({ warnMessage: "Invalid refresh data response" }).finally(
-      () => {
+    userLoader()
+      .then((res) => {
+        if (res && res.data) {
+          setUserInfo(res.data.Info);
+        } else {
+          console.warn("Invalid refresh data response");
+        }
+      })
+      .catch((err) => {
+        console.error("Error refreshing user data:", err);
+      })
+      .finally(() => {
         setRefreshData(false);
-      }
-    );
-  }, [refreshData, loadUserSnapshot]);
+      });
+  }, [refreshData, userLoader]);
 
   const hasRole = (roles) =>
     roles.some((r) => userInfo?.roles?.indexOf(r) >= 0);
@@ -252,7 +209,6 @@ const SessionManagerProvider = ({
     setRefreshData,
     hasRole,
     deviceUID,
-    resetDeviceUID: resetMountedDeviceUID,
     loadingUser,
   };
 
@@ -278,6 +234,5 @@ export {
   SessionManagerContext as SessionManager,
   SessionManagerProvider,
   getDeviceFingerprint,
-  resetDeviceUID,
 };
 export default SessionManagerProvider;

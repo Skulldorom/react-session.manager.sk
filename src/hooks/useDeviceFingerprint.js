@@ -1,87 +1,36 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import getDeviceUID, { resetDeviceUID as resetStoredDeviceUID } from "../components/FingerPrint";
+import { useState, useEffect } from "react";
+import getDeviceFingerprint from "../components/FingerPrint";
 
 /**
- * Reads (or generates) a stable device UID and keeps the Axios instance header
- * in sync. Persistence is owned by the shared fingerprint helper so the package
- * has exactly one canonical localStorage key: deviceUID.
+ * Reads (or generates) a stable device fingerprint, persists it to
+ * localStorage, and keeps the Axios instance header in sync.
  *
  * @param {import("axios").AxiosInstance} axiosInstance
- * @returns {{ deviceUID: string|null, resetDeviceUID: () => Promise<string|null> }}
+ * @returns {string|null} deviceUID
  */
 function useDeviceFingerprint(axiosInstance) {
-  const [deviceUID, setDeviceUID] = useState(null);
-  const generationRef = useRef(0);
-
-  const setAxiosDeviceUID = useCallback(
-    (uid) => {
-      if (uid) {
-        axiosInstance.defaults.headers.common["deviceUID"] = uid;
-      } else {
-        delete axiosInstance.defaults.headers.common["deviceUID"];
-      }
-    },
-    [axiosInstance]
-  );
-
-  const loadDeviceUID = useCallback(
-    ({ reset = false } = {}) => {
-      const generation = generationRef.current + 1;
-      generationRef.current = generation;
-
-      if (reset) {
-        resetStoredDeviceUID();
-        setDeviceUID(null);
-        setAxiosDeviceUID(null);
-      }
-
-      return Promise.resolve(getDeviceUID())
-        .then((uid) => {
-          if (generation !== generationRef.current) return null;
-          setDeviceUID(uid);
-          setAxiosDeviceUID(uid);
-          return uid;
-        })
-        .catch((err) => {
-          if (generation !== generationRef.current) return null;
-          console.error("Failed to generate device fingerprint:", err);
-          setDeviceUID(null);
-          setAxiosDeviceUID(null);
-          return null;
-        });
-    },
-    [setAxiosDeviceUID]
-  );
+  const [deviceUID, setDeviceUID] = useState(() => {
+    return localStorage.getItem("deviceUID") || null;
+  });
 
   useEffect(() => {
-    let canceled = false;
-    const generation = generationRef.current + 1;
-    generationRef.current = generation;
+    if (deviceUID) {
+      axiosInstance.defaults.headers.common["deviceUID"] = deviceUID;
+      return;
+    }
 
-    Promise.resolve(getDeviceUID())
+    Promise.resolve(getDeviceFingerprint())
       .then((uid) => {
-        if (canceled || generation !== generationRef.current) return;
+        localStorage.setItem("deviceUID", uid);
         setDeviceUID(uid);
-        setAxiosDeviceUID(uid);
+        axiosInstance.defaults.headers.common["deviceUID"] = uid;
       })
       .catch((err) => {
-        if (canceled || generation !== generationRef.current) return;
         console.error("Failed to generate device fingerprint:", err);
-        setDeviceUID(null);
-        setAxiosDeviceUID(null);
       });
+  }, [axiosInstance, deviceUID]);
 
-    return () => {
-      canceled = true;
-    };
-  }, [setAxiosDeviceUID]);
-
-  const resetMountedDeviceUID = useCallback(
-    () => loadDeviceUID({ reset: true }),
-    [loadDeviceUID]
-  );
-
-  return { deviceUID, resetDeviceUID: resetMountedDeviceUID };
+  return deviceUID;
 }
 
 export default useDeviceFingerprint;
