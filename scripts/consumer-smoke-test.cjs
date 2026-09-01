@@ -245,6 +245,10 @@ import { SessionManager, SessionManagerProvider } from 'react-session.manager.sk
 const axiosLike = {
   defaults: { headers: { common: {} } },
   interceptors: {
+    request: {
+      use: () => 2,
+      eject: () => {},
+    },
     response: {
       use: () => 1,
       eject: () => {},

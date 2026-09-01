@@ -1,6 +1,11 @@
 import React, { useContext } from "react";
 import { render, act, waitFor } from "@testing-library/react";
 import { SessionManager, SessionManagerProvider } from "../src/index.js";
+import {
+  clearCsrfToken,
+  getCsrfToken,
+  setCsrfToken,
+} from "../src/csrf.js";
 
 jest.mock("react-toastify", () => ({
   ToastContainer: () => null,
@@ -35,6 +40,10 @@ function createMockAxios() {
       },
     },
     interceptors: {
+      request: {
+        use: jest.fn().mockReturnValue(2),
+        eject: jest.fn(),
+      },
       response: {
         use: jest.fn().mockReturnValue(1),
         eject: jest.fn(),
@@ -95,6 +104,7 @@ function renderProvider({
 beforeEach(() => {
   jest.clearAllMocks();
   mockResetMountedDeviceUID.mockClear();
+  clearCsrfToken();
   jest.spyOn(console, "info").mockImplementation(() => {});
   localStorage.clear();
   sessionStorage.clear();
@@ -450,6 +460,142 @@ describe("SessionManagerProvider", () => {
       unmount();
 
       expect(mockAxios.interceptors.response.eject).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe("cross-site CSRF transport", () => {
+    it("captures X-CSRF-TOKEN from a successful response", () => {
+      const { mockAxios } = renderProvider();
+      const [onFulfilled] = mockAxios.interceptors.response.use.mock.calls[0];
+
+      onFulfilled({ headers: { "x-csrf-token": "csrf-abc" } });
+
+      expect(getCsrfToken()).toBe("csrf-abc");
+    });
+
+    it("captures X-CSRF-TOKEN using the uppercase header spelling", () => {
+      const { mockAxios } = renderProvider();
+      const [onFulfilled] = mockAxios.interceptors.response.use.mock.calls[0];
+
+      onFulfilled({ headers: { "X-CSRF-TOKEN": "csrf-upper" } });
+
+      expect(getCsrfToken()).toBe("csrf-upper");
+    });
+
+    it("registers a request interceptor exactly once per instance", () => {
+      const { mockAxios } = renderProvider();
+
+      expect(mockAxios.interceptors.request.use).toHaveBeenCalledTimes(1);
+    });
+
+    it("attaches the captured CSRF token to unsafe methods", () => {
+      const { mockAxios } = renderProvider();
+      const [responseOnFulfilled] =
+        mockAxios.interceptors.response.use.mock.calls[0];
+      const [requestOnFulfilled] =
+        mockAxios.interceptors.request.use.mock.calls[0];
+
+      responseOnFulfilled({ headers: { "x-csrf-token": "csrf-post" } });
+
+      for (const method of ["post", "put", "patch", "delete"]) {
+        const config = { method, headers: {} };
+        expect(requestOnFulfilled(config)).toBe(config);
+        expect(config.headers["X-CSRF-TOKEN"]).toBe("csrf-post");
+      }
+    });
+
+    it("does not attach a CSRF token to safe methods", () => {
+      const { mockAxios } = renderProvider();
+      const [responseOnFulfilled] =
+        mockAxios.interceptors.response.use.mock.calls[0];
+      const [requestOnFulfilled] =
+        mockAxios.interceptors.request.use.mock.calls[0];
+
+      responseOnFulfilled({ headers: { "x-csrf-token": "csrf-safe" } });
+
+      for (const method of ["get", "head", "options"]) {
+        const config = { method, headers: {} };
+        requestOnFulfilled(config);
+        expect(config.headers["X-CSRF-TOKEN"]).toBeUndefined();
+      }
+    });
+
+    it("does not attach a CSRF token when none has been captured", () => {
+      const { mockAxios } = renderProvider();
+      const [requestOnFulfilled] =
+        mockAxios.interceptors.request.use.mock.calls[0];
+
+      const config = { method: "post", headers: {} };
+      requestOnFulfilled(config);
+
+      expect(config.headers["X-CSRF-TOKEN"]).toBeUndefined();
+    });
+
+    it("replaces the previous CSRF token after a refresh response", () => {
+      const { mockAxios } = renderProvider();
+      const [responseOnFulfilled] =
+        mockAxios.interceptors.response.use.mock.calls[0];
+
+      responseOnFulfilled({ headers: { "x-csrf-token": "csrf-old" } });
+      expect(getCsrfToken()).toBe("csrf-old");
+
+      responseOnFulfilled({ headers: { "x-csrf-token": "csrf-new" } });
+      expect(getCsrfToken()).toBe("csrf-new");
+    });
+
+    it("clears the CSRF token on session invalidation (401)", async () => {
+      const { mockAxios } = renderProvider();
+      const [responseOnFulfilled, responseOnRejected] =
+        mockAxios.interceptors.response.use.mock.calls[0];
+
+      responseOnFulfilled({ headers: { "x-csrf-token": "csrf-401" } });
+      expect(getCsrfToken()).toBe("csrf-401");
+
+      await expect(
+        responseOnRejected({ response: { status: 401 } })
+      ).rejects.toBeDefined();
+      expect(getCsrfToken()).toBeNull();
+    });
+
+    it("does not persist the CSRF token to localStorage or sessionStorage", () => {
+      const { mockAxios } = renderProvider();
+      const [responseOnFulfilled] =
+        mockAxios.interceptors.response.use.mock.calls[0];
+
+      responseOnFulfilled({ headers: { "x-csrf-token": "csrf-nostore" } });
+
+      expect(localStorage.getItem("X-CSRF-TOKEN")).toBeNull();
+      expect(sessionStorage.getItem("X-CSRF-TOKEN")).toBeNull();
+      expect(localStorage.getItem("csrf_access_token")).toBeNull();
+      expect(sessionStorage.getItem("csrf_access_token")).toBeNull();
+    });
+
+    it("ejects the request interceptor on unmount", () => {
+      const { mockAxios, unmount } = renderProvider();
+
+      unmount();
+
+      expect(mockAxios.interceptors.request.eject).toHaveBeenCalledWith(2);
+    });
+
+    it("keeps legacy same-site Axios XSRF defaults configured", () => {
+      const { mockAxios } = renderProvider();
+
+      expect(mockAxios.defaults.withXSRFToken).toBe(true);
+      expect(mockAxios.defaults.xsrfCookieName).toBe("csrf_access_token");
+      expect(mockAxios.defaults.xsrfHeaderName).toBe("X-CSRF-TOKEN");
+    });
+
+    it("uses an explicit in-memory token even though Axios may read a cookie", () => {
+      setCsrfToken("explicit-in-memory");
+      const { mockAxios } = renderProvider();
+      const [requestOnFulfilled] =
+        mockAxios.interceptors.request.use.mock.calls[0];
+
+      const config = { method: "post", headers: {} };
+      requestOnFulfilled(config);
+
+      expect(config.headers["X-CSRF-TOKEN"]).toBe("explicit-in-memory");
     });
   });
 

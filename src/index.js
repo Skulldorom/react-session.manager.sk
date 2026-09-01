@@ -3,6 +3,13 @@ import handleApiError from "./components/handleApiError";
 import VersionProtection from "./components/VersionProtection";
 import getDeviceFingerprint, { resetDeviceUID } from "./components/FingerPrint";
 import useDeviceFingerprint from "./hooks/useDeviceFingerprint";
+import {
+  CSRF_HEADER_NAME,
+  captureCsrfFromResponse,
+  clearCsrfToken,
+  getCsrfToken,
+  isUnsafeMethod,
+} from "./csrf";
 
 // Notifications
 import { ToastContainer } from "react-toastify";
@@ -124,6 +131,7 @@ const SessionManagerProvider = ({
     setIsAdmin(false);
     setUserInfo({});
     delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
+    clearCsrfToken();
   }, [AuthenticatedAxiosObject]);
 
   const loadUserSnapshot = useCallback(
@@ -210,7 +218,13 @@ const SessionManagerProvider = ({
   // Eject/re-register the Axios response interceptor when the instance changes
   useEffect(() => {
     const interceptorId = AuthenticatedAxiosObject.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Cross-site CSRF: capture any X-CSRF-TOKEN the backend returned so
+        // subsequent unsafe requests can attach it. Same-site deployments still
+        // rely on Axios reading the csrf_access_token cookie.
+        captureCsrfFromResponse(response);
+        return response;
+      },
       (error) => handleApiError(error, { onSessionExpired: invalidateSession })
     );
 
@@ -218,6 +232,25 @@ const SessionManagerProvider = ({
       AuthenticatedAxiosObject.interceptors.response.eject(interceptorId);
     };
   }, [AuthenticatedAxiosObject, invalidateSession]);
+
+  // Attach the in-memory CSRF token to unsafe requests. Registered once per
+  // instance and ejected on cleanup so remounts never stack interceptors.
+  useEffect(() => {
+    const interceptorId = AuthenticatedAxiosObject.interceptors.request.use(
+      (config) => {
+        const csrfToken = getCsrfToken();
+        if (csrfToken && isUnsafeMethod(config?.method)) {
+          config.headers = config.headers || {};
+          config.headers[CSRF_HEADER_NAME] = csrfToken;
+        }
+        return config;
+      }
+    );
+
+    return () => {
+      AuthenticatedAxiosObject.interceptors.request.eject(interceptorId);
+    };
+  }, [AuthenticatedAxiosObject]);
 
   // Periodic user-data refresh flag
   const [refreshData, setRefreshData] = useState(false);

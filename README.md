@@ -52,7 +52,7 @@ This package and [flask-session.manager.sk](https://github.com/Skulldorom/flask-
 ## Features
 
 - **Credentialed cookie requests** for APIs that issue HttpOnly auth cookies
-- **CSRF header support** using Axios XSRF defaults (`csrf_access_token` → `X-CSRF-TOKEN`)
+- **CSRF header support** using Axios XSRF defaults (`csrf_access_token` → `X-CSRF-TOKEN`) plus in-memory `X-CSRF-TOKEN` capture for cross-site SPA/API deployments
 - **Optional session ping/refresh** on a configurable interval
 - **Legacy bearer cleanup** — removes old `Authorization` values from `localStorage` and `sessionStorage`
 - **Device fingerprinting** — generates a stable `deviceUID` and attaches it to every request header
@@ -198,7 +198,33 @@ axios.defaults.xsrfCookieName = "csrf_access_token";
 axios.defaults.xsrfHeaderName = "X-CSRF-TOKEN";
 ```
 
-The backend must issue the HttpOnly auth cookie and expose the CSRF value through the deployment's chosen CSRF mechanism. For readable-cookie CSRF, the browser must be able to read `csrf_access_token` from the frontend origin; cross-site deployments may need a same-site API hostname or a response/header CSRF endpoint instead.
+The backend must issue the HttpOnly auth cookie and expose the CSRF value through the deployment's chosen CSRF mechanism.
+
+### Cross-site CSRF (SPA and API on different domains)
+
+When the SPA and API live on different registrable domains (e.g.
+`https://portal.example.com` and `https://api.herokuapp.com`), the browser
+cannot read the API-scoped `csrf_access_token` cookie from the SPA's origin, so
+Axios's XSRF cookie fallback does not work. For those deployments the Flask
+companion `flask-session.manager.sk` (v1.3+) returns the current CSRF value in
+an `X-CSRF-TOKEN` response header and exposes it via
+`Access-Control-Expose-Headers`.
+
+This package handles that automatically:
+
+- It captures `X-CSRF-TOKEN` from any successful auth/session/refresh response.
+- It stores the value **in memory only** — never in `localStorage` or
+  `sessionStorage`.
+- It attaches the in-memory token to unsafe requests (`POST`, `PUT`, `PATCH`,
+  `DELETE`) via a request interceptor. Safe requests (`GET`, `HEAD`, `OPTIONS`)
+  do not require it.
+- It replaces the token on refresh and clears it on logout, session expiry, or
+  invalidation.
+
+You do not need to set `X-CSRF-TOKEN` manually in consumer code. If an explicit
+in-memory token is present, it is used for unsafe requests regardless of
+whether Axios can read the cookie; otherwise the same-site XSRF defaults above
+still apply.
 
 The provider does not read, write, or refresh bearer access tokens in `localStorage` or `sessionStorage`. On mount, and when old tabs write `Authorization` storage values, it removes those legacy values as migration cleanup.
 
@@ -264,7 +290,15 @@ After a successful reload, if the new client version satisfies the server's requ
 
 ### Axios Interceptors
 
-The provider registers a response interceptor on `AuthenticatedAxiosObject`:
+The provider registers two interceptors on `AuthenticatedAxiosObject`.
+
+A **request** interceptor attaches the in-memory CSRF token as `X-CSRF-TOKEN` to
+unsafe methods (`POST`, `PUT`, `PATCH`, `DELETE`) when one has been captured from
+a previous response. It is ejected on unmount so multiple mounts never stack
+duplicate interceptors.
+
+A **response** interceptor handles the status codes below and also captures any
+`X-CSRF-TOKEN` response header for cross-site deployments:
 
 | Status | Behaviour |
 |---|---|
