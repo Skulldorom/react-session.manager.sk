@@ -32,6 +32,10 @@ function createMockAxios() {
       },
     },
     interceptors: {
+      request: {
+        use: jest.fn().mockReturnValue(2),
+        eject: jest.fn(),
+      },
       response: {
         use: jest.fn().mockReturnValue(1),
         eject: jest.fn(),
