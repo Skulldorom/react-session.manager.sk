@@ -334,9 +334,17 @@ npm test
 
 # Build the distributable bundle
 npm run build
+
+# Run the real React ↔ Flask browser lifecycle test
+# (requires Python, flask-session.manager.sk, and Playwright Chromium)
+npm run test:companion
 ```
 
-Tests live in the `tests/` directory and use Jest. The CI workflow runs tests in a dedicated **test** job before **build-and-publish**, so a failing test blocks the release.
+Tests live in the `tests/` directory and use Jest. CI also packs the distributable
+React package and exercises it against the real Flask companion in Chromium for
+both same-origin and cross-site cookie topologies. The lifecycle covers login,
+bootstrap, hard reload, authenticated safe/unsafe requests, rotation, revocation,
+relogin, and logout. A failing compatibility test blocks the release.
 
 ---
 
