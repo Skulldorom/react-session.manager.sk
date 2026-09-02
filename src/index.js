@@ -29,6 +29,7 @@ const SessionManagerContext = createContext({
   hasRole: null,
   deviceUID: null,
   resetDeviceUID: null,
+  refreshSession: null,
   loadingUser: null,
 });
 
@@ -50,7 +51,11 @@ const SessionManagerProvider = ({
   toastOptions,
   children,
 }) => {
-  const { deviceUID, resetDeviceUID: resetMountedDeviceUID } =
+  const {
+    deviceUID,
+    deviceUIDReady = true,
+    resetDeviceUID: resetMountedDeviceUID,
+  } =
     useDeviceFingerprint(AuthenticatedAxiosObject);
   const sessionGenerationRef = useRef(0);
 
@@ -144,6 +149,9 @@ const SessionManagerProvider = ({
 
       return userLoader()
         .then((res) => {
+          // Bootstrap must capture CSRF directly: userLoader may begin before
+          // this provider's Axios response interceptor is registered.
+          captureCsrfFromResponse(res);
           if (res && res.data) {
             applySessionSnapshot(res.data, generation);
           } else {
@@ -169,22 +177,24 @@ const SessionManagerProvider = ({
   );
 
   useEffect(() => {
-    const userLoaderTimer = setTimeout(() => {
-      loadUserSnapshot({ markLoaded: true });
-    }, 100);
+    if (!deviceUIDReady) return;
+    loadUserSnapshot({ markLoaded: true });
+  }, [deviceUIDReady, loadUserSnapshot]);
 
-    return () => clearTimeout(userLoaderTimer);
-  }, [loadUserSnapshot]);
+  const refreshSession = useCallback(
+    () => loadUserSnapshot(),
+    [loadUserSnapshot]
+  );
 
   const setLoggedin = useCallback(
     (status) => {
       if (status) {
-        setCurrentLoggedIn(true);
-        return;
+        return refreshSession();
       }
       invalidateSession();
+      return Promise.resolve();
     },
-    [invalidateSession]
+    [invalidateSession, refreshSession]
   );
 
   useEffect(() => {
@@ -276,6 +286,7 @@ const SessionManagerProvider = ({
   }, [refreshData, loadUserSnapshot]);
 
   const hasRole = (roles) =>
+    Array.isArray(roles) &&
     roles.some((r) => userInfo?.roles?.indexOf(r) >= 0);
 
   const contextValue = {
@@ -290,6 +301,7 @@ const SessionManagerProvider = ({
     hasRole,
     deviceUID,
     resetDeviceUID: resetMountedDeviceUID,
+    refreshSession,
     loadingUser,
   };
 
