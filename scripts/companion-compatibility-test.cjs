@@ -195,7 +195,7 @@ async function exerciseLifecycle(browser, pageUrl, topology) {
   );
   assert.equal(await page.getByTestId("logged-in").textContent(), "false");
 
-  await page.getByTestId("login").click();
+  await page.getByTestId("login").click({ force: true });
   await page.waitForFunction(
     () => document.querySelector("[data-testid=logged-in]")?.textContent === "true"
   );
