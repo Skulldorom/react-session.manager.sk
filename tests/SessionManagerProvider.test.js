@@ -276,6 +276,25 @@ describe("SessionManagerProvider", () => {
       expect(errorSpy).toHaveBeenCalledWith("User data fetch failed:", error);
     });
 
+    it.each([
+      [401, undefined],
+      [455, { logged_in: false }],
+    ])(
+      "sets loadingUser to false when initial userLoader rejects with %i",
+      async (status, data) => {
+        const userLoader = jest.fn().mockRejectedValue({
+          response: { status, data },
+        });
+
+        const { getCaptured } = renderProvider({ userLoader });
+
+        await waitFor(() => expect(getCaptured().loadingUser).toBe(false));
+        expect(getCaptured().isLoggedIn).toBe(false);
+        expect(getCaptured().isAdmin).toBe(false);
+        expect(getCaptured().userInfo).toEqual({});
+      }
+    );
+
     it("does not let a stale userLoader response restore a logged-out session", async () => {
       let resolveUserLoader;
       const userLoader = jest.fn().mockReturnValue(
