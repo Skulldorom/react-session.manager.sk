@@ -146,8 +146,14 @@ describe("SessionManagerProvider", () => {
   });
 
   describe("setLoggedin", () => {
-    it("updates isLoggedIn to true", async () => {
-      const { getCaptured } = renderProvider();
+    it("revalidates before updating isLoggedIn to true", async () => {
+      const userLoader = jest
+        .fn()
+        .mockResolvedValueOnce({ data: { logged_in: false } })
+        .mockResolvedValue({
+          data: { logged_in: true, is_admin: false, Info: { name: "Alice" } },
+        });
+      const { getCaptured } = renderProvider({ userLoader });
 
       await waitFor(() =>
         expect(typeof getCaptured().setLoggedin).toBe("function")
@@ -158,6 +164,7 @@ describe("SessionManagerProvider", () => {
       });
 
       await waitFor(() => expect(getCaptured().isLoggedIn).toBe(true));
+      expect(userLoader).toHaveBeenCalledTimes(2);
     });
 
     it("updates isLoggedIn to false", async () => {
@@ -238,9 +245,43 @@ describe("SessionManagerProvider", () => {
 
       expect(getCaptured().hasRole(["admin"])).toBe(false);
     });
+
+    it.each([undefined, null, "admin"])(
+      "returns false for malformed roles input %p",
+      async (roles) => {
+        const { getCaptured } = renderProvider();
+        await waitFor(() => expect(getCaptured().loadingUser).toBe(false));
+        expect(getCaptured().hasRole(roles)).toBe(false);
+      }
+    );
   });
 
   describe("userLoader integration", () => {
+    it("waits for device identity initialization before loading the session", async () => {
+      useDeviceFingerprint.mockReturnValueOnce({
+        deviceUID: null,
+        deviceUIDReady: false,
+        resetDeviceUID: mockResetMountedDeviceUID,
+      });
+      const userLoader = jest.fn();
+
+      const { getCaptured } = renderProvider({ userLoader });
+
+      expect(userLoader).not.toHaveBeenCalled();
+      expect(getCaptured().loadingUser).toBe(true);
+    });
+
+    it("captures CSRF from the initial bootstrap response", async () => {
+      const userLoader = jest.fn().mockResolvedValue({
+        data: { logged_in: true, Info: {} },
+        headers: { "x-csrf-token": "bootstrap-csrf" },
+      });
+
+      renderProvider({ userLoader });
+
+      await waitFor(() => expect(getCsrfToken()).toBe("bootstrap-csrf"));
+    });
+
     it("sets isLoggedIn and isAdmin from userLoader response", async () => {
       const userLoader = jest.fn().mockResolvedValue({
         data: { logged_in: true, is_admin: true, Info: { name: "Alice" } },
@@ -350,9 +391,13 @@ describe("SessionManagerProvider", () => {
       );
     });
 
-    it("calls onSessionChange when setLoggedin updates login state", async () => {
+    it("calls onSessionChange after setLoggedin revalidates login state", async () => {
       const onSessionChange = jest.fn();
-      const { getCaptured } = renderProvider({ onSessionChange });
+      const userLoader = jest
+        .fn()
+        .mockResolvedValueOnce({ data: { logged_in: false } })
+        .mockResolvedValue({ data: { logged_in: true, Info: {} } });
+      const { getCaptured } = renderProvider({ onSessionChange, userLoader });
 
       await waitFor(() =>
         expect(typeof getCaptured().setLoggedin).toBe("function")
@@ -666,8 +711,12 @@ describe("SessionManagerProvider", () => {
       const refreshToken = jest.fn().mockResolvedValue({
         refreshed: true,
       });
+      const userLoader = jest.fn().mockResolvedValue({
+        data: { logged_in: true, is_admin: false, Info: {} },
+      });
       const { getCaptured } = renderProvider({
         refreshToken,
+        userLoader,
         refreshTimer: 0.001,
       });
 

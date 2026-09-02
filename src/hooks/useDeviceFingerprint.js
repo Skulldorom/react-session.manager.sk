@@ -7,10 +7,11 @@ import getDeviceUID, { resetDeviceUID as resetStoredDeviceUID } from "../compone
  * has exactly one canonical localStorage key: deviceUID.
  *
  * @param {import("axios").AxiosInstance} axiosInstance
- * @returns {{ deviceUID: string|null, resetDeviceUID: () => Promise<string|null> }}
+ * @returns {{ deviceUID: string|null, deviceUIDReady: boolean, resetDeviceUID: () => Promise<string|null> }}
  */
 function useDeviceFingerprint(axiosInstance) {
   const [deviceUID, setDeviceUID] = useState(null);
+  const [deviceUIDReady, setDeviceUIDReady] = useState(false);
   const generationRef = useRef(0);
 
   const setAxiosDeviceUID = useCallback(
@@ -30,6 +31,7 @@ function useDeviceFingerprint(axiosInstance) {
       generationRef.current = generation;
 
       if (reset) {
+        setDeviceUIDReady(false);
         resetStoredDeviceUID();
         setDeviceUID(null);
         setAxiosDeviceUID(null);
@@ -40,6 +42,7 @@ function useDeviceFingerprint(axiosInstance) {
           if (generation !== generationRef.current) return null;
           setDeviceUID(uid);
           setAxiosDeviceUID(uid);
+          setDeviceUIDReady(true);
           return uid;
         })
         .catch((err) => {
@@ -47,6 +50,7 @@ function useDeviceFingerprint(axiosInstance) {
           console.error("Failed to generate device fingerprint:", err);
           setDeviceUID(null);
           setAxiosDeviceUID(null);
+          setDeviceUIDReady(true);
           return null;
         });
     },
@@ -63,12 +67,14 @@ function useDeviceFingerprint(axiosInstance) {
         if (canceled || generation !== generationRef.current) return;
         setDeviceUID(uid);
         setAxiosDeviceUID(uid);
+        setDeviceUIDReady(true);
       })
       .catch((err) => {
         if (canceled || generation !== generationRef.current) return;
         console.error("Failed to generate device fingerprint:", err);
         setDeviceUID(null);
         setAxiosDeviceUID(null);
+        setDeviceUIDReady(true);
       });
 
     return () => {
@@ -81,7 +87,7 @@ function useDeviceFingerprint(axiosInstance) {
     [loadDeviceUID]
   );
 
-  return { deviceUID, resetDeviceUID: resetMountedDeviceUID };
+  return { deviceUID, deviceUIDReady, resetDeviceUID: resetMountedDeviceUID };
 }
 
 export default useDeviceFingerprint;

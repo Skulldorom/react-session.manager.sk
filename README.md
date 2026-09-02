@@ -133,8 +133,8 @@ function Profile() {
 
 | Prop | Type | Required | Description |
 |---|---|---|---|
-| `AuthenticatedAxiosObject` | `AxiosInstance` | ✅ | An axios instance. The provider enables credentialed cookie requests, configures Axios XSRF defaults, and attaches `deviceUID` and `appVersion` headers. It does not set `Authorization` for browser auth. |
-| `userLoader` | `() => Promise` | ✅ | Async function that fetches the current user. Must resolve to `{ data: { logged_in, is_admin, Info } }`. |
+| `AuthenticatedAxiosObject` | `AxiosInstance` | ✅ | A dedicated axios instance owned by this provider. The provider mutates its credential, XSRF, `deviceUID`, and `appVersion` defaults. Do not share it with unrelated API clients. |
+| `userLoader` | `() => Promise` | ✅ | Async function that fetches the current user. Must resolve to `{ data: { logged_in, is_admin, Info } }`. For cross-site deployments, its backend route must use Flask companion `session_response()` so reload bootstrap also returns `X-CSRF-TOKEN`. |
 | `refreshToken` | `() => Promise` | | Optional async function used as a server-side cookie session ping/refresh while logged in. It should not return or persist browser bearer tokens. |
 | `refreshTimer` | `number` | | Minutes between automatic token refresh attempts. Defaults to `60`. |
 | `dataRefresh` | `number` | | Minutes between automatic user-data refresh calls. Defaults to `60`. |
@@ -177,11 +177,16 @@ const session = useContext(SessionManager);
 | `header` | `string` | Deprecated compatibility value. Browser auth is cookie-based; this package does not apply it to Axios `Authorization` headers. |
 | `deviceUID` | `string` | The stable device fingerprint stored in `localStorage`. |
 | `resetDeviceUID` | `() => Promise<string \| null>` | Clears the stored device identity, removes the current Axios `deviceUID` header immediately, and generates a fresh UID while keeping provider state and Axios defaults synchronized. |
+| `refreshSession` | `() => Promise<void>` | Revalidate the cookie session with `userLoader` and apply the authoritative server snapshot. |
 | `refreshData` | `boolean` | Flag that is set to `true` when a periodic data refresh is due. |
 | `setHeader` | `(token: string) => void` | Deprecated compatibility setter. Updates context only and does not set Axios `Authorization`. |
-| `setLoggedin` | `(status: boolean) => void` | Manually update the logged-in state (e.g. after logout). |
+| `setLoggedin` | `(status: boolean) => Promise<void>` | Compatibility API. `false` invalidates locally immediately; `true` revalidates through `userLoader` and cannot manufacture authenticated state. Prefer `refreshSession()` after login. |
 | `setRefreshData` | `(status: boolean) => void` | Manually trigger or clear a data refresh cycle. |
 | `hasRole` | `(roles: string[]) => boolean` | Returns `true` if `userInfo.roles` contains any of the provided role strings. |
+
+`header` and `setHeader` are retained only for 4.x compatibility and are
+scheduled for removal in the next major release. Consumers should remove them
+from context destructuring; cookie authentication requires neither value.
 
 ---
 
