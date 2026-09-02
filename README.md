@@ -184,6 +184,10 @@ const session = useContext(SessionManager);
 | `setRefreshData` | `(status: boolean) => void` | Manually trigger or clear a data refresh cycle. |
 | `hasRole` | `(roles: string[]) => boolean` | Returns `true` if `userInfo.roles` contains any of the provided role strings. |
 
+`header` and `setHeader` are retained only for 4.x compatibility and are
+scheduled for removal in the next major release. Consumers should remove them
+from context destructuring; cookie authentication requires neither value.
+
 ---
 
 ## How It Works
