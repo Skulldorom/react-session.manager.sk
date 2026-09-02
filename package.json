@@ -1,6 +1,6 @@
 {
   "name": "react-session.manager.sk",
-  "version": "4.2.4",
+  "version": "4.2.5",
   "description": "A React provider for cookie-based sessions with a Flask backend",
   "main": "./dist/index.js",
   "files": [
