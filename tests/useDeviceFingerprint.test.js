@@ -30,7 +30,9 @@ describe("useDeviceFingerprint", () => {
 
     const { result } = renderHook(() => useDeviceFingerprint(mockAxios));
 
+    expect(result.current.deviceUIDReady).toBe(false);
     await waitFor(() => expect(result.current.deviceUID).toBe("stored-uid"));
+    expect(result.current.deviceUIDReady).toBe(true);
   });
 
   it("generates and stores a new deviceUID through the shared helper", async () => {
@@ -60,6 +62,7 @@ describe("useDeviceFingerprint", () => {
       )
     );
     expect(result.current.deviceUID).toBeNull();
+    expect(result.current.deviceUIDReady).toBe(true);
     expect(localStorage.getItem("deviceUID")).toBeNull();
     expect(mockAxios.defaults.headers.common).not.toHaveProperty("deviceUID");
   });
@@ -96,6 +99,7 @@ describe("useDeviceFingerprint", () => {
 
     expect(resetStoredDeviceUID).toHaveBeenCalledTimes(1);
     expect(result.current.deviceUID).toBeNull();
+    expect(result.current.deviceUIDReady).toBe(false);
     expect(mockAxios.defaults.headers.common).not.toHaveProperty("deviceUID");
 
     await act(async () => {
@@ -104,6 +108,7 @@ describe("useDeviceFingerprint", () => {
     });
 
     await waitFor(() => expect(result.current.deviceUID).toBe("fresh-uid"));
+    expect(result.current.deviceUIDReady).toBe(true);
     expect(mockAxios.defaults.headers.common["deviceUID"]).toBe("fresh-uid");
   });
 
