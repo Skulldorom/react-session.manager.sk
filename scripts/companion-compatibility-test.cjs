@@ -203,6 +203,13 @@ async function exerciseLifecycle(browser, pageUrl, topology) {
   await page.waitForFunction(
     () => document.querySelector("[data-testid=logged-in]")?.textContent === "false"
   );
+
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForFunction(
+    () => document.querySelector("[data-testid=loading]")?.textContent === "false"
+  );
+  assert.equal(await page.getByTestId("logged-in").textContent(), "false");
+
   await context.close();
   console.log(`${topology.name} lifecycle passed.`);
 }
