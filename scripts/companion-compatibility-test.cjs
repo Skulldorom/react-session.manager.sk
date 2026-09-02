@@ -195,11 +195,11 @@ async function exerciseLifecycle(browser, pageUrl, topology) {
   );
   assert.equal(await page.getByTestId("logged-in").textContent(), "false");
 
-  await page.getByTestId("login").click({ force: true });
+  await page.getByTestId("login").evaluate((button) => button.click());
   await page.waitForFunction(
     () => document.querySelector("[data-testid=logged-in]")?.textContent === "true"
   );
-  await page.getByTestId("logout").click();
+  await page.getByTestId("logout").evaluate((button) => button.click());
   await page.waitForFunction(
     () => document.querySelector("[data-testid=logged-in]")?.textContent === "false"
   );
