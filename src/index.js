@@ -130,6 +130,10 @@ const SessionManagerProvider = ({
     setCurrentLoggedIn(false);
     setIsAdmin(false);
     setUserInfo({});
+    // Session invalidation can race the initial userLoader request. End the
+    // initial loading state here because that request's generation becomes
+    // stale and its finally handler must not update state afterward.
+    setLoadingUser(false);
     delete AuthenticatedAxiosObject.defaults.headers.common["Authorization"];
     clearCsrfToken();
   }, [AuthenticatedAxiosObject]);
