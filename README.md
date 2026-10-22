@@ -340,6 +340,17 @@ function Root() {
 }
 ```
 
+React-Toastify keeps one notification store per container ID, so two providers mounting the same ID would render duplicate sections for every toast. If one page mounts more than one `SessionManagerProvider`, give each a distinct `toastContainerId`:
+
+```jsx
+<SessionManagerProvider toastContainerId="session-manager-admin" {...adminProps}>
+  <AdminApp />
+</SessionManagerProvider>
+<SessionManagerProvider toastContainerId="session-manager-portal" {...portalProps}>
+  <PortalApp />
+</SessionManagerProvider>
+```
+
 ---
 
 ## Development

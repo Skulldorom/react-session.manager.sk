@@ -13,6 +13,11 @@ const os = require("node:os");
 const path = require("node:path");
 
 const projectRoot = path.resolve(__dirname, "..");
+// Pinned explicitly so the fixture never relies on npm hoisting the copy that
+// react-session.manager.sk depends on.
+const reactToastifyVersion = require(
+  path.join(projectRoot, "node_modules", "react-toastify", "package.json")
+).version;
 let tempRoot;
 let appRoot;
 let packageRoot;
@@ -153,6 +158,10 @@ async function runBrowserSmoke() {
     const renderedText = await page.locator("#root").innerText();
     assert.match(renderedText, /Consumer smoke ready/);
 
+    // Same-runtime store routing is covered by tests/toastIsolation.test.js.
+    // This browser pass additionally proves the packaged bundle behaves in a
+    // real consumer app, where the app's react-toastify copy is separate from
+    // the one webpack bundled into dist/index.js.
     await page.getByTestId("application-toast").click();
     await page.getByTestId("session-toast").click();
     await page.waitForSelector(".consumer-application-toast");
@@ -266,6 +275,7 @@ async function main() {
           react: "19.2.7",
           "react-dom": "19.2.7",
           playwright: "1.57.0",
+          "react-toastify": reactToastifyVersion,
           "react-session.manager.sk": `file:${tarballPath}`,
         },
         devDependencies: {},
