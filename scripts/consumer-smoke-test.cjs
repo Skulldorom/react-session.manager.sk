@@ -152,6 +152,50 @@ async function runBrowserSmoke() {
 
     const renderedText = await page.locator("#root").innerText();
     assert.match(renderedText, /Consumer smoke ready/);
+
+    await page.getByTestId("application-toast").click();
+    await page.getByTestId("session-toast").click();
+    await page.waitForSelector(".consumer-application-toast");
+    await page.waitForSelector(".session-manager-toast");
+
+    const applicationToast = page.locator(".consumer-application-toast");
+    const sessionToast = page.locator(".session-manager-toast");
+    assert.equal(
+      await applicationToast.count(),
+      1,
+      "application toast must render once"
+    );
+    assert.equal(
+      await sessionToast.count(),
+      1,
+      "Session Manager toast must render once"
+    );
+    const applicationContainer = applicationToast.locator(
+      "xpath=ancestor::section[contains(@class, 'Toastify')]"
+    );
+    const sessionContainer = sessionToast.locator(
+      "xpath=ancestor::section[contains(@class, 'Toastify')]"
+    );
+    assert.equal(
+      await applicationContainer.count(),
+      1,
+      "application toast must render in exactly one container"
+    );
+    assert.equal(
+      await sessionContainer.count(),
+      1,
+      "Session Manager toast must render in exactly one container"
+    );
+    assert.equal(
+      await applicationContainer.getAttribute("id"),
+      null,
+      "application toast must remain in the default Toastify container"
+    );
+    assert.equal(
+      await sessionContainer.getAttribute("id"),
+      "session-manager",
+      "Session Manager toast must use the dedicated Toastify container"
+    );
     assert.deepEqual(
       pageErrors,
       [],
@@ -238,9 +282,10 @@ async function main() {
   );
   writeFileSync(
     path.join(appRoot, "src", "main.jsx"),
-    `import React, { useContext } from 'react';
+    `import React, { useContext, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SessionManager, SessionManagerProvider } from 'react-session.manager.sk';
+import { ToastContainer, toast } from 'react-toastify';
 
 const axiosLike = {
   defaults: { headers: { common: {} } },
@@ -256,27 +301,65 @@ const axiosLike = {
   },
 };
 
-function Status() {
-  const session = useContext(SessionManager);
-  return (
-    <main data-testid="consumer-smoke-ready">
-      Consumer smoke ready: {String(session.loadingUser)} / {String(session.isLoggedIn)}
-    </main>
-  );
-}
+function SessionManagerConsumer() {
+  const [appVersion, setAppVersion] = useState('0.0.0-consumer-smoke');
 
-createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
+  useEffect(() => {
+    const showUpdate = () => setAppVersion('1.0.0');
+    window.addEventListener('session-manager-show-update', showUpdate);
+    return () => window.removeEventListener('session-manager-show-update', showUpdate);
+  }, []);
+
+  return (
     <SessionManagerProvider
       AuthenticatedAxiosObject={axiosLike}
       refreshTimer={1}
       dataRefresh={1}
       userLoader={() => Promise.resolve({ data: { logged_in: false, is_admin: false, Info: { roles: [] } } })}
       refreshToken={() => Promise.resolve({ access_token: 'consumer-smoke-token', refreshed: false })}
-      appVersion="0.0.0-consumer-smoke"
+      appVersion={appVersion}
+      toastOptions={{ toastClassName: 'session-manager-toast' }}
     >
       <Status />
     </SessionManagerProvider>
+  );
+}
+
+function Status() {
+  const session = useContext(SessionManager);
+
+  const showApplicationToast = () => {
+    toast('Application-owned notification', {
+      toastId: 'consumer-application-toast',
+      className: 'consumer-application-toast',
+    });
+  };
+
+  const showSessionToast = () => {
+    sessionStorage.setItem('appVersionOld', 'true');
+    sessionStorage.setItem('requiredVersion', '1.0.0');
+    window.dispatchEvent(new Event('session-manager-show-update'));
+  };
+
+  return (
+    <main data-testid="consumer-smoke-ready">
+      Consumer smoke ready: {String(session.loadingUser)} / {String(session.isLoggedIn)}
+      <button data-testid="application-toast" onClick={showApplicationToast}>
+        Show application toast
+      </button>
+      <button data-testid="session-toast" onClick={showSessionToast}>
+        Show Session Manager toast
+      </button>
+    </main>
+  );
+}
+
+createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <>
+      <ToastContainer />
+      <SessionManagerConsumer />
+    </>
   </React.StrictMode>
 );
 `

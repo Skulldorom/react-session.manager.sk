@@ -11,7 +11,12 @@ import { SESSION_TOAST_CONTAINER_ID } from "./toastContainer";
  *   invalidated (HTTP 401 or custom 455) so the caller can clear auth state.
  * @returns {Promise} Always rejects with the original error.
  */
-const handleApiError = (error, { onSessionExpired } = {}) => {
+const handleApiError = (
+  error,
+  { onSessionExpired, toastContainerId = SESSION_TOAST_CONTAINER_ID } = {}
+) => {
+  const effectiveToastContainerId =
+    toastContainerId || SESSION_TOAST_CONTAINER_ID;
   const status = error?.response?.status;
 
   switch (status) {
@@ -20,7 +25,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
       toast.error("Unauthorized – please log in.", {
         toastId: "ERR_UNAUTHORIZED",
         icon: <Logout />,
-        containerId: SESSION_TOAST_CONTAINER_ID,
+        containerId: effectiveToastContainerId,
       });
       break;
 
@@ -28,7 +33,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
       toast.error("You don't have permission to do this.", {
         toastId: "ERR_FORBIDDEN",
         icon: <GppBad />,
-        containerId: SESSION_TOAST_CONTAINER_ID,
+        containerId: effectiveToastContainerId,
       });
       break;
 
@@ -70,7 +75,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
         toast.warning(updateMessage, {
           toastId: "appReloadError",
           icon: <Update />,
-          containerId: SESSION_TOAST_CONTAINER_ID,
+          containerId: effectiveToastContainerId,
         });
       }
       break;
@@ -83,7 +88,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
         toast.info("Your session is no longer valid, please login again.", {
           toastId: "Forced_log_out",
           icon: <Logout />,
-          containerId: SESSION_TOAST_CONTAINER_ID,
+          containerId: effectiveToastContainerId,
         });
       }
       break;
@@ -93,7 +98,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
       toast.error("Server error, please try again later.", {
         toastId: "ERR_SERVER",
         icon: <GppBad />,
-        containerId: SESSION_TOAST_CONTAINER_ID,
+        containerId: effectiveToastContainerId,
       });
       break;
 
@@ -101,7 +106,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
       toast.error("Service unavailable, please try again later.", {
         toastId: "ERR_SERVICE_UNAVAILABLE",
         icon: <GppBad />,
-        containerId: SESSION_TOAST_CONTAINER_ID,
+        containerId: effectiveToastContainerId,
       });
       break;
 
@@ -114,7 +119,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
               {
                 toastId: "ERR_TIMEOUT",
                 icon: <GppBad />,
-                containerId: SESSION_TOAST_CONTAINER_ID,
+                containerId: effectiveToastContainerId,
               }
             );
           } else {
@@ -123,7 +128,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
               {
                 toastId: "ERR_CONNECTION_REFUSED",
                 icon: <GppBad />,
-                containerId: SESSION_TOAST_CONTAINER_ID,
+                containerId: effectiveToastContainerId,
               }
             );
           }

@@ -51,6 +51,23 @@ describe("VersionProtection", () => {
     );
   });
 
+  it("uses the supplied Session Manager container ID", () => {
+    sessionStorage.setItem("appVersionOld", "true");
+    sessionStorage.setItem("requiredVersion", "1.0.0");
+
+    render(
+      <VersionProtection
+        appVersion="1.0.0"
+        toastContainerId="custom-session-manager"
+      />
+    );
+
+    expect(toast.success).toHaveBeenCalledWith(
+      expect.stringContaining("updated"),
+      expect.objectContaining({ containerId: "custom-session-manager" })
+    );
+  });
+
   it("clears all update-related sessionStorage entries after showing the toast", () => {
     sessionStorage.setItem("appVersionOld", "true");
     sessionStorage.setItem("requiredVersion", "1.0.0");

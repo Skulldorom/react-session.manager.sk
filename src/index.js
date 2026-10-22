@@ -50,8 +50,11 @@ const SessionManagerProvider = ({
   appVersion,
   onSessionChange,
   toastOptions,
+  toastContainerId = SESSION_TOAST_CONTAINER_ID,
   children,
 }) => {
+  const effectiveToastContainerId =
+    toastContainerId || SESSION_TOAST_CONTAINER_ID;
   const {
     deviceUID,
     deviceUIDReady = true,
@@ -255,13 +258,17 @@ const SessionManagerProvider = ({
         captureCsrfFromResponse(response);
         return response;
       },
-      (error) => handleApiError(error, { onSessionExpired: invalidateSession })
+      (error) =>
+        handleApiError(error, {
+          onSessionExpired: invalidateSession,
+          toastContainerId: effectiveToastContainerId,
+        })
     );
 
     return () => {
       AuthenticatedAxiosObject.interceptors.response.eject(interceptorId);
     };
-  }, [AuthenticatedAxiosObject, invalidateSession]);
+  }, [AuthenticatedAxiosObject, invalidateSession, effectiveToastContainerId]);
 
   // Attach the in-memory CSRF token to unsafe requests. Registered once per
   // instance and ejected on cleanup so remounts never stack interceptors.
@@ -331,9 +338,12 @@ const SessionManagerProvider = ({
         newestOnTop={false}
         toastClassName={"custToast materialToast"}
         {...toastOptions}
-        containerId={SESSION_TOAST_CONTAINER_ID}
+        containerId={effectiveToastContainerId}
       />
-      <VersionProtection appVersion={appVersion} />
+      <VersionProtection
+        appVersion={appVersion}
+        toastContainerId={effectiveToastContainerId}
+      />
       {children}
     </SessionManagerContext>
   );

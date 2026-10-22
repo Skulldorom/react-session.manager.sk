@@ -140,7 +140,8 @@ function Profile() {
 | `dataRefresh` | `number` | | Minutes between automatic user-data refresh calls. Defaults to `60`. |
 | `appVersion` | `string` | | Semver string of the current client build (e.g. `"1.2.3"`). Used for version comparison against server requirements. |
 | `onSessionChange` | `(snapshot: object) => void` | | Optional callback invoked whenever `isLoggedIn`, `isAdmin`, `userInfo`, `loadingUser`, or `deviceUID` changes. Use this for app-specific side effects such as telemetry user context without coupling this package to an analytics provider. |
-| `toastOptions` | `object` | | Any valid [react-toastify `ToastContainer` props](https://fkhadra.github.io/react-toastify/api/toast-container) to customise notification behaviour. |
+| `toastOptions` | `object` | | Any valid [react-toastify `ToastContainer` props](https://fkhadra.github.io/react-toastify/api/toast-container) to customise Session Manager notification behaviour, except `containerId`. |
+| `toastContainerId` | `string` | | ID for Session Manager's dedicated Toastify container. Defaults to `"session-manager"`. |
 | `children` | `ReactNode` | ✅ | Your application tree. |
 
 The `onSessionChange` callback receives a snapshot shaped like:
@@ -321,7 +322,7 @@ A **response** interceptor handles the status codes below and also captures any
 
 Session Manager renders notifications through its own `<ToastContainer containerId="session-manager" />`. Its internal notifications target this dedicated container, so they do not use or interfere with an application's default/global Toastify container.
 
-Use `toastOptions` to customise the Session Manager container, including `toastClassName` and other valid [`ToastContainer` props](https://fkhadra.github.io/react-toastify/api/toast-container). The `containerId` is managed internally and cannot be overridden.
+Use `toastOptions` to customise the Session Manager container, including `toastClassName` and other valid [`ToastContainer` props](https://fkhadra.github.io/react-toastify/api/toast-container). Its `containerId` is ignored to keep the container and internal notifications aligned. Use `toastContainerId` when a custom dedicated ID is required; every Session Manager notification targets that same ID.
 
 ```jsx
 import { ToastContainer } from "react-toastify";

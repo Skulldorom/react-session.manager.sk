@@ -55,6 +55,19 @@ describe("handleApiError", () => {
       );
     });
 
+    it("uses the supplied Session Manager container ID", async () => {
+      const error = { response: { status: 401 } };
+
+      await expect(
+        handleApiError(error, { toastContainerId: "custom-session-manager" })
+      ).rejects.toEqual(error);
+
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining("Unauthorized"),
+        expect.objectContaining({ containerId: "custom-session-manager" })
+      );
+    });
+
     it("works without onSessionExpired option", async () => {
       const error = { response: { status: 401 } };
       await expect(handleApiError(error)).rejects.toEqual(error);

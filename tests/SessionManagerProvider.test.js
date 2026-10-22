@@ -73,6 +73,7 @@ function renderProvider({
   refreshTimer,
   dataRefresh,
   toastOptions,
+  toastContainerId,
 } = {}) {
   const mockAxios = axiosInstance ?? createMockAxios();
   let capturedCtx = {};
@@ -87,6 +88,7 @@ function renderProvider({
       refreshTimer={refreshTimer}
       dataRefresh={dataRefresh}
       toastOptions={toastOptions}
+      toastContainerId={toastContainerId}
     >
       <ContextReader
         onValue={(ctx) => {
@@ -131,6 +133,17 @@ describe("SessionManagerProvider", () => {
 
       expect(mockToastContainer.mock.calls.at(-1)[0]).toEqual(
         expect.objectContaining({ containerId: SESSION_TOAST_CONTAINER_ID })
+      );
+    });
+
+    it("uses toastContainerId instead of toastOptions.containerId", () => {
+      renderProvider({
+        toastContainerId: "custom-session-manager",
+        toastOptions: { containerId: "application" },
+      });
+
+      expect(mockToastContainer.mock.calls.at(-1)[0]).toEqual(
+        expect.objectContaining({ containerId: "custom-session-manager" })
       );
     });
   });
@@ -539,6 +552,22 @@ describe("SessionManagerProvider", () => {
       expect(getCaptured().userInfo).toEqual({});
       expect(mockAxios.defaults.headers.common).not.toHaveProperty(
         "Authorization"
+      );
+    });
+
+    it("targets toastContainerId when its interceptor reports an error", async () => {
+      const { mockAxios } = renderProvider({
+        toastContainerId: "custom-session-manager",
+      });
+      const [, onRejected] = mockAxios.interceptors.response.use.mock.calls[0];
+      const error = { response: { status: 403 } };
+
+      await expect(onRejected(error)).rejects.toBe(error);
+
+      const { toast } = require("react-toastify");
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining("permission"),
+        expect.objectContaining({ containerId: "custom-session-manager" })
       );
     });
 
