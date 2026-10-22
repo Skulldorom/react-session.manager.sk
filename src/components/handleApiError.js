@@ -1,5 +1,6 @@
 import { toast } from "react-toastify";
 import { GppBad, Update, Logout } from "./Icons";
+import { SESSION_TOAST_CONTAINER_ID } from "./toastContainer";
 
 /**
  * Centralised Axios response error handler.
@@ -19,6 +20,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
       toast.error("Unauthorized – please log in.", {
         toastId: "ERR_UNAUTHORIZED",
         icon: <Logout />,
+        containerId: SESSION_TOAST_CONTAINER_ID,
       });
       break;
 
@@ -26,6 +28,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
       toast.error("You don't have permission to do this.", {
         toastId: "ERR_FORBIDDEN",
         icon: <GppBad />,
+        containerId: SESSION_TOAST_CONTAINER_ID,
       });
       break;
 
@@ -67,6 +70,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
         toast.warning(updateMessage, {
           toastId: "appReloadError",
           icon: <Update />,
+          containerId: SESSION_TOAST_CONTAINER_ID,
         });
       }
       break;
@@ -79,6 +83,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
         toast.info("Your session is no longer valid, please login again.", {
           toastId: "Forced_log_out",
           icon: <Logout />,
+          containerId: SESSION_TOAST_CONTAINER_ID,
         });
       }
       break;
@@ -88,6 +93,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
       toast.error("Server error, please try again later.", {
         toastId: "ERR_SERVER",
         icon: <GppBad />,
+        containerId: SESSION_TOAST_CONTAINER_ID,
       });
       break;
 
@@ -95,6 +101,7 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
       toast.error("Service unavailable, please try again later.", {
         toastId: "ERR_SERVICE_UNAVAILABLE",
         icon: <GppBad />,
+        containerId: SESSION_TOAST_CONTAINER_ID,
       });
       break;
 
@@ -104,12 +111,20 @@ const handleApiError = (error, { onSessionExpired } = {}) => {
           if (error?.code === "ECONNABORTED" || error?.code === "ETIMEDOUT") {
             toast.error(
               "Request timed out. The server is taking too long to respond.",
-              { toastId: "ERR_TIMEOUT", icon: <GppBad /> }
+              {
+                toastId: "ERR_TIMEOUT",
+                icon: <GppBad />,
+                containerId: SESSION_TOAST_CONTAINER_ID,
+              }
             );
           } else {
             toast.error(
               "The server is not responding, please reload or try again later.",
-              { toastId: "ERR_CONNECTION_REFUSED", icon: <GppBad /> }
+              {
+                toastId: "ERR_CONNECTION_REFUSED",
+                icon: <GppBad />,
+                containerId: SESSION_TOAST_CONTAINER_ID,
+              }
             );
           }
         }

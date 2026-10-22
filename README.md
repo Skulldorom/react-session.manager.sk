@@ -319,7 +319,25 @@ A **response** interceptor handles the status codes below and also captures any
 
 ### Toast Notifications
 
-All notifications are rendered via a `<ToastContainer>` mounted inside the provider. You can customise its behaviour with the `toastOptions` prop — it accepts any props that `<ToastContainer>` accepts, including `toastClassName` for custom CSS classes.
+Session Manager renders notifications through its own `<ToastContainer containerId="session-manager" />`. Its internal notifications target this dedicated container, so they do not use or interfere with an application's default/global Toastify container.
+
+Use `toastOptions` to customise the Session Manager container, including `toastClassName` and other valid [`ToastContainer` props](https://fkhadra.github.io/react-toastify/api/toast-container). The `containerId` is managed internally and cannot be overridden.
+
+```jsx
+import { ToastContainer } from "react-toastify";
+import { SessionManagerProvider } from "react-session.manager.sk";
+
+function Root() {
+  return (
+    <>
+      <ToastContainer />
+      <SessionManagerProvider {...sessionManagerProps}>
+        <App />
+      </SessionManagerProvider>
+    </>
+  );
+}
+```
 
 ---
 

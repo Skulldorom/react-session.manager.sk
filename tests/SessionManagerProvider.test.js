@@ -1,6 +1,7 @@
 import React, { useContext } from "react";
 import { render, act, waitFor } from "@testing-library/react";
 import { SessionManager, SessionManagerProvider } from "../src/index.js";
+import { SESSION_TOAST_CONTAINER_ID } from "../src/components/toastContainer.js";
 import {
   clearCsrfToken,
   getCsrfToken,
@@ -8,7 +9,7 @@ import {
 } from "../src/csrf.js";
 
 jest.mock("react-toastify", () => ({
-  ToastContainer: () => null,
+  ToastContainer: jest.fn(() => null),
   toast: {
     warn: jest.fn(),
     error: jest.fn(),
@@ -29,6 +30,7 @@ jest.mock("../src/hooks/useDeviceFingerprint.js", () =>
 jest.mock("../src/components/VersionProtection.js", () => () => null);
 
 const useDeviceFingerprint = require("../src/hooks/useDeviceFingerprint.js");
+const { ToastContainer: mockToastContainer } = require("react-toastify");
 
 // Helper: creates a minimal fake Axios instance
 function createMockAxios() {
@@ -111,6 +113,28 @@ beforeEach(() => {
 });
 
 describe("SessionManagerProvider", () => {
+  describe("ToastContainer", () => {
+    it("uses the dedicated Session Manager container ID", () => {
+      renderProvider();
+
+      expect(mockToastContainer.mock.calls.at(-1)[0]).toEqual(
+        expect.objectContaining({
+          containerId: SESSION_TOAST_CONTAINER_ID,
+          position: "top-left",
+          autoClose: 5000,
+        })
+      );
+    });
+
+    it("does not allow toastOptions to override the dedicated container ID", () => {
+      renderProvider({ toastOptions: { containerId: "application" } });
+
+      expect(mockToastContainer.mock.calls.at(-1)[0]).toEqual(
+        expect.objectContaining({ containerId: SESSION_TOAST_CONTAINER_ID })
+      );
+    });
+  });
+
   describe("default context values", () => {
     it("provides isLoggedIn as false initially", async () => {
       const { getCaptured } = renderProvider();

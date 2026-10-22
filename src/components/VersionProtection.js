@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { toast } from "react-toastify";
 import versionCompare from "./versionCompare";
 import { BrowserUpdated } from "./Icons";
+import { SESSION_TOAST_CONTAINER_ID } from "./toastContainer";
 
 function VersionProtection({ appVersion }) {
   useEffect(() => {
@@ -17,6 +18,7 @@ function VersionProtection({ appVersion }) {
       toast.success("Your application has been updated", {
         toastId: "appReload",
         icon: <BrowserUpdated />,
+        containerId: SESSION_TOAST_CONTAINER_ID,
       });
     }
   }, [appVersion]);

@@ -1,6 +1,7 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import VersionProtection from "../src/components/VersionProtection.js";
+import { SESSION_TOAST_CONTAINER_ID } from "../src/components/toastContainer.js";
 
 jest.mock("react-toastify", () => ({
   toast: {
@@ -43,7 +44,10 @@ describe("VersionProtection", () => {
 
     expect(toast.success).toHaveBeenCalledWith(
       expect.stringContaining("updated"),
-      expect.objectContaining({ toastId: "appReload" })
+      expect.objectContaining({
+        toastId: "appReload",
+        containerId: SESSION_TOAST_CONTAINER_ID,
+      })
     );
   });
 
