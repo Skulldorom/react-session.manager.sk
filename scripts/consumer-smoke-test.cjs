@@ -274,7 +274,7 @@ async function main() {
           vite: "7.3.6",
           react: "19.2.7",
           "react-dom": "19.2.7",
-          playwright: "1.57.0",
+          playwright: "1.64.1",
           "react-toastify": reactToastifyVersion,
           "react-session.manager.sk": `file:${tarballPath}`,
         },
