@@ -330,7 +330,7 @@ const SessionManagerProvider = ({
   return (
     <SessionManagerContext value={contextValue}>
       <ToastContainer
-        position="top-left"
+        position="top-center"
         autoClose={5000}
         closeOnClick
         pauseOnFocusLoss
