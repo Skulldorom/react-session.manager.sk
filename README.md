@@ -140,7 +140,8 @@ function Profile() {
 | `dataRefresh` | `number` | | Minutes between automatic user-data refresh calls. Defaults to `60`. |
 | `appVersion` | `string` | | Semver string of the current client build (e.g. `"1.2.3"`). Used for version comparison against server requirements. |
 | `onSessionChange` | `(snapshot: object) => void` | | Optional callback invoked whenever `isLoggedIn`, `isAdmin`, `userInfo`, `loadingUser`, or `deviceUID` changes. Use this for app-specific side effects such as telemetry user context without coupling this package to an analytics provider. |
-| `toastOptions` | `object` | | Any valid [react-toastify `ToastContainer` props](https://fkhadra.github.io/react-toastify/api/toast-container) to customise notification behaviour. |
+| `toastOptions` | `object` | | Any valid [react-toastify `ToastContainer` props](https://fkhadra.github.io/react-toastify/api/toast-container) to customise Session Manager notification behaviour, except `containerId`. |
+| `toastContainerId` | `string` | | ID for Session Manager's dedicated Toastify container. Defaults to `"session-manager"`. |
 | `children` | `ReactNode` | ✅ | Your application tree. |
 
 The `onSessionChange` callback receives a snapshot shaped like:
@@ -319,7 +320,36 @@ A **response** interceptor handles the status codes below and also captures any
 
 ### Toast Notifications
 
-All notifications are rendered via a `<ToastContainer>` mounted inside the provider. You can customise its behaviour with the `toastOptions` prop — it accepts any props that `<ToastContainer>` accepts, including `toastClassName` for custom CSS classes.
+Session Manager renders notifications through its own `<ToastContainer containerId="session-manager" />`. Its internal notifications target this dedicated container, so they do not use or interfere with an application's default/global Toastify container.
+
+Use `toastOptions` to customise the Session Manager container, including `toastClassName` and other valid [`ToastContainer` props](https://fkhadra.github.io/react-toastify/api/toast-container). Its `containerId` is ignored to keep the container and internal notifications aligned. Use `toastContainerId` when a custom dedicated ID is required; every Session Manager notification targets that same ID.
+
+```jsx
+import { ToastContainer } from "react-toastify";
+import { SessionManagerProvider } from "react-session.manager.sk";
+
+function Root() {
+  return (
+    <>
+      <ToastContainer />
+      <SessionManagerProvider {...sessionManagerProps}>
+        <App />
+      </SessionManagerProvider>
+    </>
+  );
+}
+```
+
+React-Toastify keeps one notification store per container ID, so two providers mounting the same ID would render duplicate sections for every toast. If one page mounts more than one `SessionManagerProvider`, give each a distinct `toastContainerId`:
+
+```jsx
+<SessionManagerProvider toastContainerId="session-manager-admin" {...adminProps}>
+  <AdminApp />
+</SessionManagerProvider>
+<SessionManagerProvider toastContainerId="session-manager-portal" {...portalProps}>
+  <PortalApp />
+</SessionManagerProvider>
+```
 
 ---
 

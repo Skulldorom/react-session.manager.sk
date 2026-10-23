@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useCallback, useRef } from "react";
 import handleApiError from "./components/handleApiError";
 import VersionProtection from "./components/VersionProtection";
+import { SESSION_TOAST_CONTAINER_ID } from "./components/toastContainer";
 import getDeviceFingerprint, { resetDeviceUID } from "./components/FingerPrint";
 import useDeviceFingerprint from "./hooks/useDeviceFingerprint";
 import {
@@ -49,14 +50,16 @@ const SessionManagerProvider = ({
   appVersion,
   onSessionChange,
   toastOptions,
+  toastContainerId = SESSION_TOAST_CONTAINER_ID,
   children,
 }) => {
+  const effectiveToastContainerId =
+    toastContainerId || SESSION_TOAST_CONTAINER_ID;
   const {
     deviceUID,
     deviceUIDReady = true,
     resetDeviceUID: resetMountedDeviceUID,
-  } =
-    useDeviceFingerprint(AuthenticatedAxiosObject);
+  } = useDeviceFingerprint(AuthenticatedAxiosObject);
   const sessionGenerationRef = useRef(0);
 
   // Deprecated compatibility state. Browser auth is cookie-based; this value is
@@ -144,7 +147,10 @@ const SessionManagerProvider = ({
   }, [AuthenticatedAxiosObject]);
 
   const loadUserSnapshot = useCallback(
-    ({ markLoaded = false, warnMessage = "Invalid user data response" } = {}) => {
+    ({
+      markLoaded = false,
+      warnMessage = "Invalid user data response",
+    } = {}) => {
       const generation = sessionGenerationRef.current;
 
       return userLoader()
@@ -205,7 +211,14 @@ const SessionManagerProvider = ({
       loadingUser,
       deviceUID,
     });
-  }, [onSessionChange, currentLoggedIn, isAdmin, userInfo, loadingUser, deviceUID]);
+  }, [
+    onSessionChange,
+    currentLoggedIn,
+    isAdmin,
+    userInfo,
+    loadingUser,
+    deviceUID,
+  ]);
 
   // Optionally ping/refresh the server-side cookie session while logged in. This
   // no longer reads, writes, or rotates bearer tokens in browser storage.
@@ -227,7 +240,13 @@ const SessionManagerProvider = ({
     }, intervalMs);
 
     return () => clearInterval(interval);
-  }, [currentLoggedIn, refreshTimer, refreshToken, loadUserSnapshot, invalidateSession]);
+  }, [
+    currentLoggedIn,
+    refreshTimer,
+    refreshToken,
+    loadUserSnapshot,
+    invalidateSession,
+  ]);
 
   // Eject/re-register the Axios response interceptor when the instance changes
   useEffect(() => {
@@ -239,13 +258,17 @@ const SessionManagerProvider = ({
         captureCsrfFromResponse(response);
         return response;
       },
-      (error) => handleApiError(error, { onSessionExpired: invalidateSession })
+      (error) =>
+        handleApiError(error, {
+          onSessionExpired: invalidateSession,
+          toastContainerId: effectiveToastContainerId,
+        })
     );
 
     return () => {
       AuthenticatedAxiosObject.interceptors.response.eject(interceptorId);
     };
-  }, [AuthenticatedAxiosObject, invalidateSession]);
+  }, [AuthenticatedAxiosObject, invalidateSession, effectiveToastContainerId]);
 
   // Attach the in-memory CSRF token to unsafe requests. Registered once per
   // instance and ejected on cleanup so remounts never stack interceptors.
@@ -286,8 +309,7 @@ const SessionManagerProvider = ({
   }, [refreshData, loadUserSnapshot]);
 
   const hasRole = (roles) =>
-    Array.isArray(roles) &&
-    roles.some((r) => userInfo?.roles?.indexOf(r) >= 0);
+    Array.isArray(roles) && roles.some((r) => userInfo?.roles?.indexOf(r) >= 0);
 
   const contextValue = {
     isLoggedIn: currentLoggedIn,
@@ -316,8 +338,12 @@ const SessionManagerProvider = ({
         newestOnTop={false}
         toastClassName={"custToast materialToast"}
         {...toastOptions}
+        containerId={effectiveToastContainerId}
       />
-      <VersionProtection appVersion={appVersion} />
+      <VersionProtection
+        appVersion={appVersion}
+        toastContainerId={effectiveToastContainerId}
+      />
       {children}
     </SessionManagerContext>
   );

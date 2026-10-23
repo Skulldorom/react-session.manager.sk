@@ -1,4 +1,5 @@
 import handleApiError from "../src/components/handleApiError.js";
+import { SESSION_TOAST_CONTAINER_ID } from "../src/components/toastContainer.js";
 
 jest.mock("react-toastify", () => ({
   toast: {
@@ -47,7 +48,23 @@ describe("handleApiError", () => {
       expect(onSessionExpired).toHaveBeenCalledTimes(1);
       expect(toast.error).toHaveBeenCalledWith(
         expect.stringContaining("Unauthorized"),
-        expect.objectContaining({ toastId: "ERR_UNAUTHORIZED" })
+        expect.objectContaining({
+          toastId: "ERR_UNAUTHORIZED",
+          containerId: SESSION_TOAST_CONTAINER_ID,
+        })
+      );
+    });
+
+    it("uses the supplied Session Manager container ID", async () => {
+      const error = { response: { status: 401 } };
+
+      await expect(
+        handleApiError(error, { toastContainerId: "custom-session-manager" })
+      ).rejects.toEqual(error);
+
+      expect(toast.error).toHaveBeenCalledWith(
+        expect.stringContaining("Unauthorized"),
+        expect.objectContaining({ containerId: "custom-session-manager" })
       );
     });
 
@@ -66,7 +83,10 @@ describe("handleApiError", () => {
 
       expect(toast.error).toHaveBeenCalledWith(
         expect.stringContaining("permission"),
-        expect.objectContaining({ toastId: "ERR_FORBIDDEN" })
+        expect.objectContaining({
+          toastId: "ERR_FORBIDDEN",
+          containerId: SESSION_TOAST_CONTAINER_ID,
+        })
       );
     });
   });
@@ -136,7 +156,10 @@ describe("handleApiError", () => {
       expect(reloadSpy).not.toHaveBeenCalled();
       expect(toast.warning).toHaveBeenCalledWith(
         expect.stringContaining("updated"),
-        expect.objectContaining({ toastId: "appReloadError" })
+        expect.objectContaining({
+          toastId: "appReloadError",
+          containerId: SESSION_TOAST_CONTAINER_ID,
+        })
       );
       jest.useRealTimers();
     });
@@ -159,7 +182,10 @@ describe("handleApiError", () => {
       expect(onSessionExpired).toHaveBeenCalledTimes(1);
       expect(toast.info).toHaveBeenCalledWith(
         expect.stringContaining("session"),
-        expect.objectContaining({ toastId: "Forced_log_out" })
+        expect.objectContaining({
+          toastId: "Forced_log_out",
+          containerId: SESSION_TOAST_CONTAINER_ID,
+        })
       );
     });
 
@@ -189,7 +215,10 @@ describe("handleApiError", () => {
 
       expect(toast.error).toHaveBeenCalledWith(
         expect.stringContaining("Server error"),
-        expect.objectContaining({ toastId: "ERR_SERVER" })
+        expect.objectContaining({
+          toastId: "ERR_SERVER",
+          containerId: SESSION_TOAST_CONTAINER_ID,
+        })
       );
     });
   });
@@ -202,7 +231,10 @@ describe("handleApiError", () => {
 
       expect(toast.error).toHaveBeenCalledWith(
         expect.stringContaining("unavailable"),
-        expect.objectContaining({ toastId: "ERR_SERVICE_UNAVAILABLE" })
+        expect.objectContaining({
+          toastId: "ERR_SERVICE_UNAVAILABLE",
+          containerId: SESSION_TOAST_CONTAINER_ID,
+        })
       );
     });
   });
@@ -232,7 +264,10 @@ describe("handleApiError", () => {
 
       expect(toast.error).toHaveBeenCalledWith(
         expect.stringContaining("timed out"),
-        expect.objectContaining({ toastId: "ERR_TIMEOUT" })
+        expect.objectContaining({
+          toastId: "ERR_TIMEOUT",
+          containerId: SESSION_TOAST_CONTAINER_ID,
+        })
       );
     });
 
@@ -243,7 +278,10 @@ describe("handleApiError", () => {
 
       expect(toast.error).toHaveBeenCalledWith(
         expect.stringContaining("timed out"),
-        expect.objectContaining({ toastId: "ERR_TIMEOUT" })
+        expect.objectContaining({
+          toastId: "ERR_TIMEOUT",
+          containerId: SESSION_TOAST_CONTAINER_ID,
+        })
       );
     });
 
@@ -254,7 +292,10 @@ describe("handleApiError", () => {
 
       expect(toast.error).toHaveBeenCalledWith(
         expect.stringContaining("not responding"),
-        expect.objectContaining({ toastId: "ERR_CONNECTION_REFUSED" })
+        expect.objectContaining({
+          toastId: "ERR_CONNECTION_REFUSED",
+          containerId: SESSION_TOAST_CONTAINER_ID,
+        })
       );
     });
   });

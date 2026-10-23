@@ -77,7 +77,7 @@ function writeConsumerApp(appRoot, tarballPath) {
         dependencies: {
           "@vitejs/plugin-react": "5.2.0",
           axios: "1.13.6",
-          playwright: "1.57.0",
+          playwright: "1.64.1",
           react: "19.2.7",
           "react-dom": "19.2.7",
           "react-session.manager.sk": `file:${tarballPath}`,
