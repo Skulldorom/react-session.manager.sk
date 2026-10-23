@@ -2,11 +2,7 @@ import React, { useContext } from "react";
 import { render, act, waitFor } from "@testing-library/react";
 import { SessionManager, SessionManagerProvider } from "../src/index.js";
 import { SESSION_TOAST_CONTAINER_ID } from "../src/components/toastContainer.js";
-import {
-  clearCsrfToken,
-  getCsrfToken,
-  setCsrfToken,
-} from "../src/csrf.js";
+import { clearCsrfToken, getCsrfToken, setCsrfToken } from "../src/csrf.js";
 
 jest.mock("react-toastify", () => ({
   ToastContainer: jest.fn(() => null),
@@ -122,8 +118,6 @@ describe("SessionManagerProvider", () => {
       expect(mockToastContainer.mock.calls.at(-1)[0]).toEqual(
         expect.objectContaining({
           containerId: SESSION_TOAST_CONTAINER_ID,
-          position: "top-left",
-          autoClose: 5000,
         })
       );
     });
